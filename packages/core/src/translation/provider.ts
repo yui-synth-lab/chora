@@ -26,5 +26,5 @@ export interface NamingResponse {
 
 export interface LLMProvider {
   name: string;
-  generateNaming(prompt: TranslationPrompt): Promise<NamingResponse>;
+  generateNaming(prompt: TranslationPrompt | string): Promise<NamingResponse>;
 }

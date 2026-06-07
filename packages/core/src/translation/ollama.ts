@@ -11,8 +11,8 @@ export class OllamaProvider implements LLMProvider {
     this.endpoint = endpoint;
   }
 
-  async generateNaming(prompt: TranslationPrompt): Promise<NamingResponse> {
-    const promptText = SensoryPromptBuilder.build(prompt);
+  async generateNaming(prompt: TranslationPrompt | string): Promise<NamingResponse> {
+    const promptText = typeof prompt === 'string' ? prompt : SensoryPromptBuilder.build(prompt);
 
     const requestBody = {
       model: this.model,
@@ -44,7 +44,9 @@ export class OllamaProvider implements LLMProvider {
         use_existing_name: parsed.use_existing_name || null,
         new_name: parsed.new_name || null,
         description: parsed.description || '',
-        confidence: typeof parsed.confidence === 'number' ? parsed.confidence : 0.8
+        confidence: typeof parsed.confidence === 'number' 
+          ? Math.max(0, Math.min(1, parsed.confidence)) 
+          : 0.8
       };
     } catch (err) {
       throw new Error(`Failed to parse Ollama JSON response: ${json.response}. Error: ${(err as Error).message}`);

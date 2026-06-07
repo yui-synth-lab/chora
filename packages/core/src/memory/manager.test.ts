@@ -49,11 +49,11 @@ describe('MemoryManager Unit Test', () => {
       forgotten: 0
     });
 
-    // Naming 2: Farther from [0.5, 0.5, 0.5, 0.5]
+    // Naming 2: Farther from [0.5, 0.5, 0.5, 0.5] but within maxDistance
     db.insertNaming({
       name: 'LabelB',
       description: 'Far from middle',
-      pulse_pattern: JSON.stringify({ signal_a: 0.9, signal_b: 0.9, signal_c: 0.9, signal_d: 0.9 }),
+      pulse_pattern: JSON.stringify({ signal_a: 0.7, signal_b: 0.7, signal_c: 0.7, signal_d: 0.7 }),
       prediction_error: JSON.stringify({ signal_a: 0, signal_b: 0, signal_c: 0, signal_d: 0 }),
       llm_provider: 'test',
       confidence: 0.8,

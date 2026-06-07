@@ -52,9 +52,9 @@ export const SCHEMA_QUERIES = [
     cycle_count INTEGER DEFAULT 0,
     total_namings INTEGER DEFAULT 0,
     unique_names INTEGER DEFAULT 0,
-    last_translation_at INTEGER
-  );`,
-
-  `INSERT OR IGNORE INTO system_state (id, cycle_count, total_namings, unique_names, last_translation_at)
-   VALUES (1, 0, 0, 0, NULL);`
+    last_translation_at INTEGER,
+    generator_step INTEGER DEFAULT 0,
+    generator_signal_b_state REAL DEFAULT 0.5,
+    generator_signal_d_state REAL DEFAULT 0.3
+  );`
 ];

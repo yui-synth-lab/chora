@@ -74,7 +74,7 @@ class PredictorGRU(nn.Module):
 def main():
     print("Generating dataset...")
     generator = PulseGeneratorPython()
-    dataset_size = 50000
+    dataset_size = 200000
     data = []
     for _ in range(dataset_size):
         data.append(generator.generate())

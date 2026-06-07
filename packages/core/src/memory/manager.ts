@@ -11,10 +11,12 @@ export class MemoryManager {
    * Finds active namings with pulse patterns closest to the current pulse in Euclidean distance.
    * @param currentPulse The 4D pulse vector of the current step.
    * @param topK Number of closest naming records to retrieve.
+   * @param maxDistance Maximum 4D Euclidean distance threshold (default: 0.5).
    */
   findSimilar(
     currentPulse: { signal_a: number; signal_b: number; signal_c: number; signal_d: number },
-    topK = 5
+    topK = 5,
+    maxDistance = 0.5
   ): NamingRecord[] {
     const active = this.db.getAllActiveNamings();
     if (active.length === 0) {
@@ -47,7 +49,7 @@ export class MemoryManager {
     scored.sort((a, b) => a.distance - b.distance);
 
     return scored
-      .filter(s => s.distance !== Infinity)
+      .filter(s => s.distance <= maxDistance)
       .slice(0, topK)
       .map(s => s.naming);
   }

@@ -31,6 +31,17 @@ async function main() {
   const model = new PredictiveModel(modelPath);
   const memory = new MemoryManager(db);
   
+  // Restore generator state from DB if available
+  const initialState = db.getSystemState();
+  if (initialState && typeof initialState.generator_step === 'number') {
+    generator.setState(
+      initialState.generator_step,
+      initialState.generator_signal_b_state ?? 0.5,
+      initialState.generator_signal_d_state ?? 0.3
+    );
+    console.log(`Restored PulseGenerator state: step=${initialState.generator_step}, B=${initialState.generator_signal_b_state?.toFixed(3)}, D=${initialState.generator_signal_d_state?.toFixed(3)}`);
+  }
+  
   // Initialize Ollama provider (defaulting to llama3, change via OLLAMA_MODEL env var if needed)
   const ollamaModelName = process.env.OLLAMA_MODEL || 'llama3';
   const llm = new OllamaProvider(ollamaModelName);
@@ -56,12 +67,21 @@ async function main() {
   const tick = async () => {
     try {
       const timestamp = Date.now();
-      db.incrementCycleCount();
-      
       const state = db.getSystemState();
+      const nextCycleCount = state.cycle_count + 1;
       
       // 1. Generate current step actual pulse
       const pulse = generator.generate(timestamp);
+      const genState = generator.getState();
+      
+      // Persist state and cycle count in DB
+      db.updateSystemState(
+        nextCycleCount,
+        genState.step,
+        genState.signalBState,
+        genState.signalDState
+      );
+      
       const pulseId = db.insertPulse(pulse);
 
       const formattedA = pulse.signal_a.toFixed(2);
@@ -75,7 +95,7 @@ async function main() {
       const barD = createBar(pulse.signal_d);
 
       console.log(
-        `Cycle #${state.cycle_count.toString().padEnd(4)} | ` +
+        `Cycle #${nextCycleCount.toString().padEnd(4)} | ` +
         `A: ${formattedA} ${barA} | ` +
         `B: ${formattedB} ${barB} | ` +
         `C: ${formattedC} ${barC} | ` +
@@ -161,8 +181,8 @@ async function main() {
 
                   const rawPromptText = SensoryPromptBuilder.build(promptInput);
 
-                  // Call the LLM
-                  const namingResult = await llm.generateNaming(promptInput);
+                  // Call the LLM with the pre-built prompt string
+                  const namingResult = await llm.generateNaming(rawPromptText);
                   const durationMs = Date.now() - translationStartTime;
 
                   // Resolve naming ID
@@ -248,14 +268,14 @@ async function main() {
 
       // Stream cycle tick telemetry
       streamEvent('tick', {
-        cycle_count: state.cycle_count,
+        cycle_count: nextCycleCount,
         timestamp,
         pulse,
         prediction: predictionData
       });
 
       // 4. Memory Decay Loop (runs every 50 cycles to trigger forgetting)
-      if (state.cycle_count % 50 === 0) {
+      if (nextCycleCount % 50 === 0) {
         const decayResult = memory.decayStep(0.02, 0.1);
         if (decayResult.decayedCount > 0) {
           console.log(

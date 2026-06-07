@@ -13,6 +13,21 @@ export class PulseGenerator {
 
   constructor() {}
 
+  getState() {
+    return {
+      step: this.step,
+      signalBState: this.signalBState,
+      signalDState: this.signalDState
+    };
+  }
+
+  setState(step: number, signalBState: number, signalDState: number) {
+    this.step = step;
+    this.signalBState = signalBState;
+    this.signalDState = signalDState;
+  }
+
+
   /**
    * Generates the next pulse based on step/time.
    * @param timestamp Unix epoch timestamp in milliseconds.
