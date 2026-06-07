@@ -233,6 +233,20 @@ export class ChoraDatabase {
     return rows.reverse();
   }
 
+  getRecentHistory(limit: number): any[] {
+    const stmt = this.db.prepare(`
+      SELECT p.id, p.timestamp, p.signal_a, p.signal_b, p.signal_c, p.signal_d,
+             pr.predicted_a, pr.predicted_b, pr.predicted_c, pr.predicted_d,
+             pr.error_magnitude, pr.surprise, pr.triggered_translation
+      FROM pulses p
+      LEFT JOIN predictions pr ON p.id = pr.pulse_id
+      ORDER BY p.timestamp DESC
+      LIMIT ?
+    `);
+    const rows = stmt.all(limit) as unknown as any[];
+    return rows.reverse();
+  }
+
   getSystemState(): SystemStateRecord {
     const stmt = this.db.prepare(`
       SELECT cycle_count, total_namings, unique_names, last_translation_at
