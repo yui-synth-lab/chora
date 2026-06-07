@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useMemo } from 'react';
 import {
   ResponsiveContainer,
   LineChart,
@@ -76,27 +76,37 @@ export default function App() {
   const [selectedNamingId, setSelectedNamingId] = useState<number | null>(null);
 
   const timelineEndRef = useRef<HTMLDivElement>(null);
+  const isIntentionalClose = useRef(false);
 
   // Fetch initial REST baselines
   const loadBaselineData = async () => {
     try {
-      const historyRes = await fetch('/api/history');
+      const [historyRes, namingsRes, stateRes] = await Promise.all([
+        fetch('/api/history'),
+        fetch('/api/namings'),
+        fetch('/api/state')
+      ]);
+
       if (historyRes.ok) {
         const historyData = await historyRes.json();
         setHistory(historyData);
       }
 
-      const namingsRes = await fetch('/api/namings');
       if (namingsRes.ok) {
         const namingsData = await namingsRes.json();
         setNamings(namingsData);
-        setStats(prev => ({
-          ...prev,
-          active_namings: namingsData.length
-        }));
+      }
+
+      if (stateRes.ok) {
+        const stateData = await stateRes.json();
+        setStats({
+          cycle_count: stateData.cycle_count,
+          active_namings: stateData.active_namings,
+          unique_names: stateData.unique_names
+        });
       }
     } catch (err) {
-      console.error('Failed to load baseline history:', err);
+      console.error('Failed to load baseline data:', err);
     }
   };
 
@@ -118,11 +128,12 @@ export default function App() {
 
     ws.onclose = () => {
       setIsConnected(false);
-      console.log('[CHORA WebSocket] Disconnected from event stream. Retrying in 5s...');
-      setTimeout(() => {
-        // Simple reload to trigger reconnection
-        window.location.reload();
-      }, 5000);
+      if (!isIntentionalClose.current) {
+        console.log('[CHORA WebSocket] Disconnected from event stream. Retrying in 5s...');
+        setTimeout(() => {
+          window.location.reload();
+        }, 5000);
+      }
     };
 
     ws.onmessage = (event) => {
@@ -192,7 +203,8 @@ export default function App() {
                   ...prev,
                   active_namings: data.length
                 }));
-              });
+              })
+              .catch(err => console.error('Failed to reload namings:', err));
 
             // Update stats
             setStats(prev => ({
@@ -211,7 +223,8 @@ export default function App() {
                   ...prev,
                   active_namings: data.length
                 }));
-              });
+              })
+              .catch(err => console.error('Failed to reload namings after decay:', err));
             break;
 
           default:
@@ -223,6 +236,7 @@ export default function App() {
     };
 
     return () => {
+      isIntentionalClose.current = true;
       ws.close();
     };
   }, []);
@@ -252,6 +266,41 @@ export default function App() {
     const dD = p1.signal_d - p2.signal_d;
     return Math.sqrt(dA * dA + dB * dB + dC * dC + dD * dD);
   };
+
+  // Pre-parse pulse_pattern JSON and compute SVG coordinates once per namings change
+  const namingNodes = useMemo(() =>
+    namings.map(n => {
+      let pattern: PulsePattern = { signal_a: 0.5, signal_b: 0.5, signal_c: 0.5, signal_d: 0.5 };
+      try { pattern = JSON.parse(n.pulse_pattern) as PulsePattern; } catch {}
+      return { ...n, _pattern: pattern };
+    }),
+    [namings]
+  );
+
+  const namingEdges = useMemo(() => {
+    const edges: Array<{ key: string; x1: number; y1: number; x2: number; y2: number; id1: number; id2: number }> = [];
+    for (let i = 0; i < namingNodes.length; i++) {
+      const n1 = namingNodes[i];
+      const p1 = n1._pattern;
+      const x1 = 50 + (p1.signal_a - p1.signal_c) * 40;
+      const y1 = 50 + (p1.signal_b - p1.signal_d) * 40;
+      for (let j = i + 1; j < namingNodes.length; j++) {
+        const n2 = namingNodes[j];
+        const p2 = n2._pattern;
+        if (getDistance4D(p1, p2) < 0.35) {
+          edges.push({
+            key: `${n1.id}-${n2.id}`,
+            x1, y1,
+            x2: 50 + (p2.signal_a - p2.signal_c) * 40,
+            y2: 50 + (p2.signal_b - p2.signal_d) * 40,
+            id1: n1.id,
+            id2: n2.id
+          });
+        }
+      }
+    }
+    return edges;
+  }, [namingNodes]);
 
   return (
     <>
@@ -376,80 +425,55 @@ export default function App() {
                 <line x1="50" y1="0" x2="50" y2="100" stroke="rgba(255,255,255,0.015)" strokeWidth={0.5} />
                 <line x1="0" y1="50" x2="100" y2="50" stroke="rgba(255,255,255,0.015)" strokeWidth={0.5} />
 
-                {/* Render Links between close 4D memories */}
-                {namings.map((n1, idx1) => {
-                  try {
-                    const p1 = JSON.parse(n1.pulse_pattern) as PulsePattern;
-                    const x1 = 50 + (p1.signal_a - p1.signal_c) * 40;
-                    const y1 = 50 + (p1.signal_b - p1.signal_d) * 40;
-
-                    return namings.slice(idx1 + 1).map((n2) => {
-                      try {
-                        const p2 = JSON.parse(n2.pulse_pattern) as PulsePattern;
-                        const dist = getDistance4D(p1, p2);
-                        
-                        // Draw link if distance in 4D space is close
-                        if (dist < 0.35) {
-                          const x2 = 50 + (p2.signal_a - p2.signal_c) * 40;
-                          const y2 = 50 + (p2.signal_b - p2.signal_d) * 40;
-                          const isHighlighted = selectedNamingId === n1.id || selectedNamingId === n2.id;
-                          return (
-                            <line
-                              key={`${n1.id}-${n2.id}`}
-                              className={`map-edge ${isHighlighted ? 'active' : ''}`}
-                              x1={x1}
-                              y1={y1}
-                              x2={x2}
-                              y2={y2}
-                            />
-                          );
-                        }
-                      } catch (e) {}
-                      return null;
-                    });
-                  } catch (e) {}
-                  return null;
+                {/* Render Links between close 4D memories (memoized) */}
+                {namingEdges.map(edge => {
+                  const isHighlighted = selectedNamingId === edge.id1 || selectedNamingId === edge.id2;
+                  return (
+                    <line
+                      key={edge.key}
+                      className={`map-edge ${isHighlighted ? 'active' : ''}`}
+                      x1={edge.x1}
+                      y1={edge.y1}
+                      x2={edge.x2}
+                      y2={edge.y2}
+                    />
+                  );
                 })}
 
-                {/* Render Nodes */}
-                {namings.map((n) => {
-                  try {
-                    const pattern = JSON.parse(n.pulse_pattern) as PulsePattern;
-                    // X represents dominant Signal A vs C, Y represents dominant B vs D
-                    const x = 50 + (pattern.signal_a - pattern.signal_c) * 40;
-                    const y = 50 + (pattern.signal_b - pattern.signal_d) * 40;
-                    const color = getSensoryColor(pattern);
-                    const isSelected = selectedNamingId === n.id;
+                {/* Render Nodes (memoized) */}
+                {namingNodes.map((n) => {
+                  const pattern = n._pattern;
+                  const x = 50 + (pattern.signal_a - pattern.signal_c) * 40;
+                  const y = 50 + (pattern.signal_b - pattern.signal_d) * 40;
+                  const color = getSensoryColor(pattern);
+                  const isSelected = selectedNamingId === n.id;
 
-                    return (
-                      <g key={n.id}>
-                        <circle
-                          className={`map-node ${isSelected ? 'selected' : ''}`}
-                          cx={x}
-                          cy={y}
-                          r={isSelected ? 3 : 1.8}
-                          fill={color}
-                          stroke="#FFFFFF"
-                          strokeWidth={isSelected ? 0.8 : 0.3}
-                          onClick={() => setSelectedNamingId(isSelected ? null : n.id)}
-                        />
-                        <text
-                          className="map-node-label"
-                          x={x}
-                          y={y - (isSelected ? 4.5 : 3)}
-                          textAnchor="middle"
-                          style={{
-                            fontSize: isSelected ? '4px' : '2.5px',
-                            fill: isSelected ? '#FFFFFF' : 'var(--text-secondary)'
-                          }}
-                        >
-                          {n.name}
-                        </text>
-                      </g>
-                    );
-                  } catch (err) {
-                    return null;
-                  }
+                  return (
+                    <g key={n.id}>
+                      <circle
+                        className={`map-node ${isSelected ? 'selected' : ''}`}
+                        cx={x}
+                        cy={y}
+                        r={isSelected ? 3 : 1.8}
+                        fill={color}
+                        stroke="#FFFFFF"
+                        strokeWidth={isSelected ? 0.8 : 0.3}
+                        onClick={() => setSelectedNamingId(isSelected ? null : n.id)}
+                      />
+                      <text
+                        className="map-node-label"
+                        x={x}
+                        y={y - (isSelected ? 4.5 : 3)}
+                        textAnchor="middle"
+                        style={{
+                          fontSize: isSelected ? '4px' : '2.5px',
+                          fill: isSelected ? '#FFFFFF' : 'var(--text-secondary)'
+                        }}
+                      >
+                        {n.name}
+                      </text>
+                    </g>
+                  );
                 })}
               </svg>
             </div>
@@ -521,12 +545,8 @@ export default function App() {
                     No active naming records found in SQLite memory.
                   </div>
                 ) : (
-                  namings.map((n: Naming) => {
-                    let pattern: PulsePattern = { signal_a: 0.5, signal_b: 0.5, signal_c: 0.5, signal_d: 0.5 };
-                    try {
-                      pattern = JSON.parse(n.pulse_pattern) as PulsePattern;
-                    } catch (e) {}
-
+                  namingNodes.map((n) => {
+                    const pattern = n._pattern;
                     const sensoryColor = getSensoryColor(pattern);
                     // Sizing based on reference count
                     const size = 12 + Math.min(22, Math.sqrt(n.reference_count) * 6);

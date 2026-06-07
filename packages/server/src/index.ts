@@ -8,7 +8,7 @@ import { ChoraDatabase, findWorkspaceRoot } from '@chora/core';
 const app = express();
 const port = process.env.PORT || 3001;
 
-app.use(cors());
+app.use(cors({ origin: /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/ }));
 app.use(express.json());
 
 const root = findWorkspaceRoot();
@@ -60,12 +60,29 @@ wss.on('connection', (ws) => {
  */
 function broadcast(type: string, data: any) {
   const payload = JSON.stringify({ type, data });
-  for (const client of clients) {
+  for (const client of [...clients]) {
     if (client.readyState === WebSocket.OPEN) {
       client.send(payload);
     }
   }
 }
+
+/**
+ * REST Endpoint: System state (cycle count, active namings, unique names)
+ */
+app.get('/api/state', (req, res) => {
+  try {
+    const state = db.getSystemState();
+    const activeNamings = db.getAllActiveNamings();
+    res.json({
+      cycle_count: state?.cycle_count ?? 0,
+      active_namings: activeNamings.length,
+      unique_names: state?.unique_names ?? 0
+    });
+  } catch (err) {
+    res.status(500).json({ error: (err as Error).message });
+  }
+});
 
 /**
  * REST Endpoint: Retrieve baseline telemetry history (last 100 cycles)
@@ -105,7 +122,7 @@ app.post('/api/events', (req, res) => {
   res.status(200).json({ success: true });
 });
 
-// Start listening
-server.listen(port, () => {
-  console.log(`[CHORA Server] Server listening on port ${port}`);
+// Start listening (localhost only — this server is a local dev tool)
+server.listen(Number(port), '127.0.0.1', () => {
+  console.log(`[CHORA Server] Server listening on 127.0.0.1:${port}`);
 });

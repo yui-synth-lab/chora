@@ -244,7 +244,10 @@ export class ChoraDatabase {
       LIMIT ?
     `);
     const rows = stmt.all(limit) as unknown as any[];
-    return rows.reverse();
+    return rows.reverse().map((r: any) => ({
+      ...r,
+      triggered_translation: !!r.triggered_translation
+    }));
   }
 
   getSystemState(): SystemStateRecord {

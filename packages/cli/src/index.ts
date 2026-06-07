@@ -213,15 +213,17 @@ async function main() {
                     `           | 🧠 Description: "${chosenDescription}"`
                   );
 
-                  streamEvent('naming', {
-                    pulse_id: pulseId,
-                    name: chosenName,
-                    description: chosenDescription,
-                    confidence: namingResult.confidence,
-                    is_new: !namingResult.use_existing_name,
-                    pulse_pattern: pulse,
-                    duration_ms: durationMs
-                  });
+                  if (chosenName) {
+                    streamEvent('naming', {
+                      pulse_id: pulseId,
+                      name: chosenName,
+                      description: chosenDescription,
+                      confidence: namingResult.confidence,
+                      is_new: !namingResult.use_existing_name,
+                      pulse_pattern: pulse,
+                      duration_ms: durationMs
+                    });
+                  }
 
                   lastTranslationTime = Date.now();
                 } catch (err) {
