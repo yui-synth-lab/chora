@@ -1,7 +1,10 @@
 export { ChoraDatabase } from './db/client.js';
-export type { PulseRecord, SystemStateRecord, PredictionRecord } from './db/client.js';
+export type { PulseRecord, SystemStateRecord, PredictionRecord, NamingRecord, TranslationEventRecord } from './db/client.js';
 export { PulseGenerator } from './pulse/generator.js';
 export type { Pulse } from './pulse/generator.js';
 export { PredictiveModel } from './prediction/model.js';
 export type { PredictionResult } from './prediction/model.js';
 export { findWorkspaceRoot } from './utils/workspace.js';
+export { OllamaProvider } from './translation/ollama.js';
+export { SensoryPromptBuilder } from './translation/prompt.js';
+export type { LLMProvider, TranslationPrompt, NamingResponse } from './translation/provider.js';

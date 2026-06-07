@@ -31,6 +31,29 @@ export interface PredictionRecord {
   triggered_translation: boolean;
 }
 
+export interface NamingRecord {
+  id?: number;
+  name: string;
+  description: string | null;
+  pulse_pattern: string; // JSON string
+  prediction_error: string; // JSON string
+  llm_provider: string | null;
+  confidence: number | null;
+  created_at: number;
+  reference_count?: number;
+}
+
+export interface TranslationEventRecord {
+  id?: number;
+  pulse_id: number;
+  naming_id: number | null;
+  llm_provider: string;
+  prompt: string;
+  response: string;
+  duration_ms: number | null;
+  created_at: number;
+}
+
 export class ChoraDatabase {
   private db: DatabaseSync;
 
@@ -93,6 +116,58 @@ export class ChoraDatabase {
       prediction.triggered_translation ? 1 : 0
     );
     return Number(result.lastInsertRowid);
+  }
+
+  insertNaming(naming: Omit<NamingRecord, 'id'>): number {
+    const stmt = this.db.prepare(`
+      INSERT INTO namings (
+        name, description, pulse_pattern, prediction_error,
+        llm_provider, confidence, created_at, reference_count
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+    const result = stmt.run(
+      naming.name,
+      naming.description,
+      naming.pulse_pattern,
+      naming.prediction_error,
+      naming.llm_provider,
+      naming.confidence,
+      naming.created_at,
+      naming.reference_count ?? 1
+    );
+    return Number(result.lastInsertRowid);
+  }
+
+  insertTranslationEvent(event: Omit<TranslationEventRecord, 'id'>): number {
+    const stmt = this.db.prepare(`
+      INSERT INTO translation_events (
+        pulse_id, naming_id, llm_provider, prompt, response, duration_ms, created_at
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `);
+    const result = stmt.run(
+      event.pulse_id,
+      event.naming_id,
+      event.llm_provider,
+      event.prompt,
+      event.response,
+      event.duration_ms,
+      event.created_at
+    );
+    return Number(result.lastInsertRowid);
+  }
+
+  getRecentNamings(limit: number): NamingRecord[] {
+    const stmt = this.db.prepare(`
+      SELECT id, name, description, pulse_pattern, prediction_error,
+             llm_provider, confidence, created_at, reference_count
+      FROM namings
+      ORDER BY created_at DESC
+      LIMIT ?
+    `);
+    const rows = stmt.all(limit) as unknown as NamingRecord[];
+    return rows;
   }
 
   getRecentPulses(limit: number): PulseRecord[] {

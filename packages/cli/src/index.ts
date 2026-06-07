@@ -1,4 +1,4 @@
-import { ChoraDatabase, PulseGenerator, PredictiveModel, findWorkspaceRoot } from '@chora/core';
+import { ChoraDatabase, PulseGenerator, PredictiveModel, findWorkspaceRoot, OllamaProvider, SensoryPromptBuilder } from '@chora/core';
 import * as path from 'path';
 
 function createBar(val: number, length = 10): string {
@@ -19,6 +19,10 @@ async function main() {
   const db = new ChoraDatabase(dbPath);
   const generator = new PulseGenerator();
   const model = new PredictiveModel(modelPath);
+  
+  // Initialize Ollama provider (defaulting to llama3, change via OLLAMA_MODEL env var if needed)
+  const ollamaModelName = process.env.OLLAMA_MODEL || 'llama3';
+  const llm = new OllamaProvider(ollamaModelName);
 
   // Initialize ONNX model session
   try {
@@ -28,11 +32,16 @@ async function main() {
     console.warn('Could not initialize Predictive Model. Running in Layer 0-only fallback mode. Details:', err);
   }
 
-  console.log('\n--- CHORA Loop (Layer 0 & 1) Started ---');
+  console.log('\n--- CHORA Loop (Layer 0 & 1 & 2) Started ---');
   console.log('Press Ctrl+C to terminate loop.\n');
 
   const intervalMs = 1000;
   
+  // Lock state for translation
+  let isTranslating = false;
+  let lastTranslationTime = 0;
+  const cooldownMs = 10000; // 10 second cooldown between translations
+
   const tick = async () => {
     try {
       const timestamp = Date.now();
@@ -88,6 +97,118 @@ async function main() {
             : `[Surprise: ${surpriseStr} (Low)]`;
 
           console.log(`           | Predicted: ${predStr} | ${alert}`);
+
+          // 3. Trigger Layer 2 Translation Loop if surprise is high and cooldown is clear
+          if (prediction.triggered_translation) {
+            const timeSinceLast = Date.now() - lastTranslationTime;
+            if (!isTranslating && timeSinceLast > cooldownMs) {
+              isTranslating = true;
+              
+              // Run the translation asynchronously to not block the main loop
+              (async () => {
+                const translationStartTime = Date.now();
+                console.log(`           | 🧠 [LLM Translation] Requesting translation for sensory surprise...`);
+                
+                try {
+                  // Get past namings for context
+                  const recentNamings = db.getRecentNamings(5);
+                  const pastNamings = recentNamings.map(n => ({
+                    name: n.name,
+                    occurrences: n.reference_count ?? 1
+                  }));
+
+                  // Compute deltas: actual - predicted
+                  const deltas = {
+                    signal_a: pulse.signal_a - prediction.predicted_a,
+                    signal_b: pulse.signal_b - prediction.predicted_b,
+                    signal_c: pulse.signal_c - prediction.predicted_c,
+                    signal_d: pulse.signal_d - prediction.predicted_d
+                  };
+
+                  const promptInput = {
+                    history: history.map(h => ({
+                      signal_a: h.signal_a,
+                      signal_b: h.signal_b,
+                      signal_c: h.signal_c,
+                      signal_d: h.signal_d
+                    })),
+                    deltas,
+                    pastNamings
+                  };
+
+                  // Generate prompt text to log in translation_events
+                  const rawPromptText = SensoryPromptBuilder.build(promptInput);
+
+                  // Call the LLM
+                  const namingResult = await llm.generateNaming(promptInput);
+                  const durationMs = Date.now() - translationStartTime;
+
+                  // Resolve naming ID (create new or increment reference of existing)
+                  let chosenName = '';
+                  let chosenDescription = '';
+                  let namingId: number | null = null;
+
+                  if (namingResult.use_existing_name) {
+                    chosenName = namingResult.use_existing_name;
+                    const existing = recentNamings.find(n => n.name === chosenName);
+                    chosenDescription = existing?.description || namingResult.description;
+                    
+                    const refCount = (existing?.reference_count ?? 1) + 1;
+                    namingId = db.insertNaming({
+                      name: chosenName,
+                      description: chosenDescription,
+                      pulse_pattern: JSON.stringify(pulse),
+                      prediction_error: JSON.stringify(deltas),
+                      llm_provider: llm.name,
+                      confidence: namingResult.confidence,
+                      created_at: Date.now(),
+                      reference_count: refCount
+                    });
+                  } else if (namingResult.new_name) {
+                    chosenName = namingResult.new_name;
+                    chosenDescription = namingResult.description;
+                    namingId = db.insertNaming({
+                      name: chosenName,
+                      description: chosenDescription,
+                      pulse_pattern: JSON.stringify(pulse),
+                      prediction_error: JSON.stringify(deltas),
+                      llm_provider: llm.name,
+                      confidence: namingResult.confidence,
+                      created_at: Date.now(),
+                      reference_count: 1
+                    });
+                  }
+
+                  // Log translation event trace
+                  db.insertTranslationEvent({
+                    pulse_id: pulseId,
+                    naming_id: namingId,
+                    llm_provider: `${llm.name} (${ollamaModelName})`,
+                    prompt: rawPromptText,
+                    response: JSON.stringify(namingResult),
+                    duration_ms: durationMs,
+                    created_at: Date.now()
+                  });
+
+                  console.log(
+                    `           | 🧠 [LLM Translation Result] Naming: "${chosenName}" (Confidence: ${namingResult.confidence.toFixed(2)}) in ${durationMs}ms\n` +
+                    `           | 🧠 Description: "${chosenDescription}"`
+                  );
+
+                  lastTranslationTime = Date.now();
+                } catch (err) {
+                  console.error(`           | 🧠 [LLM Translation Error] Failed to generate naming:`, (err as Error).message);
+                } finally {
+                  isTranslating = false;
+                }
+              })();
+            } else if (isTranslating) {
+              console.log(`           | [LLM Translation] Cooldown active (translation currently in progress)`);
+            } else {
+              const secondsLeft = Math.ceil((cooldownMs - timeSinceLast) / 1000);
+              console.log(`           | [LLM Translation] Cooldown active (wait ${secondsLeft}s)`);
+            }
+          }
         } catch (predErr) {
           console.error('           | Prediction error:', (predErr as Error).message);
         }
