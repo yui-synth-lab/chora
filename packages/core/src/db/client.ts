@@ -19,6 +19,18 @@ export interface SystemStateRecord {
   last_translation_at: number | null;
 }
 
+export interface PredictionRecord {
+  id?: number;
+  pulse_id: number;
+  predicted_a: number;
+  predicted_b: number;
+  predicted_c: number;
+  predicted_d: number;
+  error_magnitude: number;
+  surprise: number;
+  triggered_translation: boolean;
+}
+
 export class ChoraDatabase {
   private db: DatabaseSync;
 
@@ -59,6 +71,27 @@ export class ChoraDatabase {
       pulse.signal_d
     );
     // lastInsertRowid can be a number or bigint, cast to number
+    return Number(result.lastInsertRowid);
+  }
+
+  insertPrediction(prediction: Omit<PredictionRecord, 'id'>): number {
+    const stmt = this.db.prepare(`
+      INSERT INTO predictions (
+        pulse_id, predicted_a, predicted_b, predicted_c, predicted_d,
+        error_magnitude, surprise, triggered_translation
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+    const result = stmt.run(
+      prediction.pulse_id,
+      prediction.predicted_a,
+      prediction.predicted_b,
+      prediction.predicted_c,
+      prediction.predicted_d,
+      prediction.error_magnitude,
+      prediction.surprise,
+      prediction.triggered_translation ? 1 : 0
+    );
     return Number(result.lastInsertRowid);
   }
 

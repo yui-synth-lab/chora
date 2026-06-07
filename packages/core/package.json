@@ -8,7 +8,9 @@
     "build": "tsc",
     "test": "vitest run"
   },
-  "dependencies": {},
+  "dependencies": {
+    "onnxruntime-node": "^1.17.3"
+  },
   "devDependencies": {
     "@types/node": "^22.11.0",
     "typescript": "^5.2.2",
