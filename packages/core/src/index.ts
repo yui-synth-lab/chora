@@ -8,3 +8,4 @@ export { findWorkspaceRoot } from './utils/workspace.js';
 export { OllamaProvider } from './translation/ollama.js';
 export { SensoryPromptBuilder } from './translation/prompt.js';
 export type { LLMProvider, TranslationPrompt, NamingResponse } from './translation/provider.js';
+export { MemoryManager } from './memory/manager.js';

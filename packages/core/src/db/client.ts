@@ -1,4 +1,8 @@
-import { DatabaseSync } from 'node:sqlite';
+import type { DatabaseSync as DatabaseSyncType } from 'node:sqlite';
+import { createRequire } from 'node:module';
+const require = createRequire(import.meta.url);
+const { DatabaseSync } = require('node:sqlite');
+
 import { SCHEMA_QUERIES } from './schema.js';
 import * as path from 'path';
 import * as fs from 'fs';
@@ -41,6 +45,7 @@ export interface NamingRecord {
   confidence: number | null;
   created_at: number;
   reference_count?: number;
+  forgotten?: number;
 }
 
 export interface TranslationEventRecord {
@@ -55,7 +60,7 @@ export interface TranslationEventRecord {
 }
 
 export class ChoraDatabase {
-  private db: DatabaseSync;
+  private db: DatabaseSyncType;
 
   constructor(dbPath: string) {
     // Ensure parent directory exists
@@ -73,6 +78,11 @@ export class ChoraDatabase {
     try {
       for (const query of SCHEMA_QUERIES) {
         this.db.exec(query);
+      }
+      try {
+        this.db.exec('ALTER TABLE namings ADD COLUMN forgotten INTEGER DEFAULT 0');
+      } catch (e) {
+        // Ignored if column already exists
       }
       this.db.exec('COMMIT');
     } catch (err) {
@@ -122,9 +132,9 @@ export class ChoraDatabase {
     const stmt = this.db.prepare(`
       INSERT INTO namings (
         name, description, pulse_pattern, prediction_error,
-        llm_provider, confidence, created_at, reference_count
+        llm_provider, confidence, created_at, reference_count, forgotten
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     const result = stmt.run(
       naming.name,
@@ -134,7 +144,8 @@ export class ChoraDatabase {
       naming.llm_provider,
       naming.confidence,
       naming.created_at,
-      naming.reference_count ?? 1
+      naming.reference_count ?? 1,
+      naming.forgotten ?? 0
     );
     return Number(result.lastInsertRowid);
   }
@@ -161,13 +172,53 @@ export class ChoraDatabase {
   getRecentNamings(limit: number): NamingRecord[] {
     const stmt = this.db.prepare(`
       SELECT id, name, description, pulse_pattern, prediction_error,
-             llm_provider, confidence, created_at, reference_count
+             llm_provider, confidence, created_at, reference_count, forgotten
       FROM namings
       ORDER BY created_at DESC
       LIMIT ?
     `);
     const rows = stmt.all(limit) as unknown as NamingRecord[];
     return rows;
+  }
+
+  getAllActiveNamings(): NamingRecord[] {
+    const stmt = this.db.prepare(`
+      SELECT id, name, description, pulse_pattern, prediction_error,
+             llm_provider, confidence, created_at, reference_count, forgotten
+      FROM namings
+      WHERE forgotten = 0
+    `);
+    return stmt.all() as unknown as NamingRecord[];
+  }
+
+  updateNamingConfidenceAndRef(id: number, confidence: number, referenceCount: number, forgotten: number): void {
+    const stmt = this.db.prepare(`
+      UPDATE namings
+      SET confidence = ?, reference_count = ?, forgotten = ?
+      WHERE id = ?
+    `);
+    stmt.run(confidence, referenceCount, forgotten, id);
+  }
+
+  decayAllNamings(decayFactor: number, threshold: number): { decayedCount: number; forgottenCount: number } {
+    const beforeActive = this.db.prepare('SELECT id FROM namings WHERE forgotten = 0').all();
+    
+    this.db.prepare(`
+      UPDATE namings
+      SET confidence = MAX(0.0, confidence - ?)
+      WHERE forgotten = 0
+    `).run(decayFactor);
+
+    const result = this.db.prepare(`
+      UPDATE namings
+      SET forgotten = 1
+      WHERE forgotten = 0 AND confidence < ?
+    `).run(threshold);
+
+    return {
+      decayedCount: beforeActive.length,
+      forgottenCount: Number(result.changes)
+    };
   }
 
   getRecentPulses(limit: number): PulseRecord[] {

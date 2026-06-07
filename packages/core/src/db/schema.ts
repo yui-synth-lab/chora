@@ -29,7 +29,8 @@ export const SCHEMA_QUERIES = [
     llm_provider TEXT,
     confidence REAL,
     created_at INTEGER NOT NULL,
-    reference_count INTEGER DEFAULT 1
+    reference_count INTEGER DEFAULT 1,
+    forgotten INTEGER DEFAULT 0
   );`,
 
   `CREATE INDEX IF NOT EXISTS idx_namings_name ON namings(name);`,

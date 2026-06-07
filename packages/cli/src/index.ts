@@ -1,4 +1,4 @@
-import { ChoraDatabase, PulseGenerator, PredictiveModel, findWorkspaceRoot, OllamaProvider, SensoryPromptBuilder } from '@chora/core';
+import { ChoraDatabase, PulseGenerator, PredictiveModel, findWorkspaceRoot, OllamaProvider, SensoryPromptBuilder, MemoryManager } from '@chora/core';
 import * as path from 'path';
 
 function createBar(val: number, length = 10): string {
@@ -19,6 +19,7 @@ async function main() {
   const db = new ChoraDatabase(dbPath);
   const generator = new PulseGenerator();
   const model = new PredictiveModel(modelPath);
+  const memory = new MemoryManager(db);
   
   // Initialize Ollama provider (defaulting to llama3, change via OLLAMA_MODEL env var if needed)
   const ollamaModelName = process.env.OLLAMA_MODEL || 'llama3';
@@ -32,7 +33,7 @@ async function main() {
     console.warn('Could not initialize Predictive Model. Running in Layer 0-only fallback mode. Details:', err);
   }
 
-  console.log('\n--- CHORA Loop (Layer 0 & 1 & 2) Started ---');
+  console.log('\n--- CHORA Loop (Layer 0 & 1 & 2 & 3) Started ---');
   console.log('Press Ctrl+C to terminate loop.\n');
 
   const intervalMs = 1000;
@@ -110,9 +111,9 @@ async function main() {
                 console.log(`           | 🧠 [LLM Translation] Requesting translation for sensory surprise...`);
                 
                 try {
-                  // Get past namings for context
-                  const recentNamings = db.getRecentNamings(5);
-                  const pastNamings = recentNamings.map(n => ({
+                  // Layer 3 memory: Find similar sensory memories using Euclidean distance
+                  const similarNamings = memory.findSimilar(pulse, 5);
+                  const pastNamings = similarNamings.map(n => ({
                     name: n.name,
                     occurrences: n.reference_count ?? 1
                   }));
@@ -136,34 +137,28 @@ async function main() {
                     pastNamings
                   };
 
-                  // Generate prompt text to log in translation_events
                   const rawPromptText = SensoryPromptBuilder.build(promptInput);
 
                   // Call the LLM
                   const namingResult = await llm.generateNaming(promptInput);
                   const durationMs = Date.now() - translationStartTime;
 
-                  // Resolve naming ID (create new or increment reference of existing)
+                  // Resolve naming ID
                   let chosenName = '';
                   let chosenDescription = '';
                   let namingId: number | null = null;
 
                   if (namingResult.use_existing_name) {
                     chosenName = namingResult.use_existing_name;
-                    const existing = recentNamings.find(n => n.name === chosenName);
+                    const existing = similarNamings.find(n => n.name === chosenName);
                     chosenDescription = existing?.description || namingResult.description;
                     
-                    const refCount = (existing?.reference_count ?? 1) + 1;
-                    namingId = db.insertNaming({
-                      name: chosenName,
-                      description: chosenDescription,
-                      pulse_pattern: JSON.stringify(pulse),
-                      prediction_error: JSON.stringify(deltas),
-                      llm_provider: llm.name,
-                      confidence: namingResult.confidence,
-                      created_at: Date.now(),
-                      reference_count: refCount
-                    });
+                    // Reinforce count and confidence
+                    memory.reinforceNaming(chosenName, 0.1);
+                    
+                    // Retrieve reinforced record to capture updated naming ID
+                    const reinforced = db.getAllActiveNamings().find(n => n.name === chosenName);
+                    namingId = reinforced?.id || null;
                   } else if (namingResult.new_name) {
                     chosenName = namingResult.new_name;
                     chosenDescription = namingResult.description;
@@ -175,7 +170,8 @@ async function main() {
                       llm_provider: llm.name,
                       confidence: namingResult.confidence,
                       created_at: Date.now(),
-                      reference_count: 1
+                      reference_count: 1,
+                      forgotten: 0
                     });
                   }
 
@@ -191,7 +187,7 @@ async function main() {
                   });
 
                   console.log(
-                    `           | 🧠 [LLM Translation Result] Naming: "${chosenName}" (Confidence: ${namingResult.confidence.toFixed(2)}) in ${durationMs}ms\n` +
+                    `           | 🧠 [LLM Translation Result] Naming: "${chosenName}" (Confidence: ${(namingResult.confidence).toFixed(2)}) in ${durationMs}ms\n` +
                     `           | 🧠 Description: "${chosenDescription}"`
                   );
 
@@ -214,6 +210,17 @@ async function main() {
         }
       } else {
         console.log(`           | Predictive model warming up... (${history.length}/32 steps)`);
+      }
+
+      // 4. Memory Decay Loop (runs every 50 cycles to trigger forgetting)
+      if (state.cycle_count % 50 === 0) {
+        const decayResult = memory.decayStep(0.02, 0.1);
+        if (decayResult.decayedCount > 0) {
+          console.log(
+            `           | 🧠 [Memory Manager] Decayed ${decayResult.decayedCount} active labels. ` +
+            `Forgotten (confidence < 0.1): ${decayResult.forgottenCount}.`
+          );
+        }
       }
     } catch (err) {
       console.error('Error during cycle tick:', err);
