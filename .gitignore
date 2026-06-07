@@ -1,0 +1,20 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build outputs
+dist/
+*.tsbuildinfo
+
+# Database & local data files
+data/
+packages/cli/data/
+*.db
+*.db-journal
+*.db-wal
+
+# OS / Editor files
+.DS_Store
+.vscode/
+.idea/
+.env

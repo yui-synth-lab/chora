@@ -1,0 +1,15 @@
+{
+  "name": "chora-monorepo",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Pre-Linguistic Field for Emergent Consciousness",
+  "scripts": {
+    "build": "pnpm -r build",
+    "test": "pnpm -r test",
+    "format": "prettier --write \"packages/**/src/**/*.ts\""
+  },
+  "devDependencies": {
+    "prettier": "^3.0.0",
+    "typescript": "^5.2.2"
+  }
+}

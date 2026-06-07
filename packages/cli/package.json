@@ -1,0 +1,17 @@
+{
+  "name": "@chora/cli",
+  "version": "0.1.0",
+  "main": "dist/index.js",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@chora/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.11.0",
+    "typescript": "^5.2.2"
+  }
+}
