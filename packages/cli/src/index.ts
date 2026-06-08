@@ -42,8 +42,8 @@ async function main() {
     console.log(`Restored PulseGenerator state: step=${initialState.generator_step}, B=${initialState.generator_signal_b_state?.toFixed(3)}, D=${initialState.generator_signal_d_state?.toFixed(3)}`);
   }
   
-  // Initialize Ollama provider (defaulting to llama3, change via OLLAMA_MODEL env var if needed)
-  const ollamaModelName = process.env.OLLAMA_MODEL || 'llama3';
+  // Initialize Ollama provider (defaulting to llm-jp-3.1, change via OLLAMA_MODEL env var if needed)
+  const ollamaModelName = process.env.OLLAMA_MODEL || 'hf.co/LiquidAI/LFM2-8B-A1B-GGUF:Q4_K_M';
   const llm = new OllamaProvider(ollamaModelName);
 
   // Initialize ONNX model session
@@ -68,7 +68,9 @@ async function main() {
   const decayIntervalMs = 30 * 60 * 1000; // 30 minutes
   const decayFactor = 0.05;               // -0.05 confidence per 30-min interval → ~7 hours to forget
   const forgottenThreshold = 0.1;
-  let lastDecayTime: number = db.getSystemState()?.last_decayed_at ?? Date.now();
+  // Use 0 as fallback (epoch) so the first decay runs after exactly one decayIntervalMs from start,
+  // rather than resetting the 30-min window on every restart.
+  let lastDecayTime: number = db.getSystemState()?.last_decayed_at ?? 0;
 
   const tick = async () => {
     try {

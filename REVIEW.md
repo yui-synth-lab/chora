@@ -1,4 +1,144 @@
-# CHORA プロジェクトレビュー
+# CHORA Project Review
+
+Review Date: 2026-06-07
+
+---
+
+## Positives
+
+**Clear separation of layers.** The responsibilities of Layers 0–3 are well-separated, and the abstraction of the `LLMProvider` interface is appropriate. The selection of the ONNX + Node.js stack, the adoption of the built-in `node:sqlite` (zero external dependencies), and the design of the visualization dashboard are all well-considered.
+
+---
+
+## Design Issues
+
+### 1. "Surprise" is essentially just detecting spikes in Signal B
+
+```typescript
+// generator.ts — signal_b: 1% probability of spiking
+if (Math.random() < 0.01) {
+  walkB += 0.4;
+}
+```
+
+What the GRU (hidden=16) fails to predict is not the deterministic sinusoid (signal_a, signal_c), but the stochastic spikes which are unpredictable by design. Almost every moment `triggered_translation = true` occurs simply because "signal_B happened to spike," which is fundamentally different from a cognitive "sensory surprise."
+
+- Lowering the surprise threshold from 0.15 causes unintended triggers as predictions of signal_A/C improve.
+- Raising it means only picking up signal_B spikes.
+- Connection events in signal_D (0.5%) are similarly unpredictable and end up mixed into the translation triggers.
+
+### 2. LLM does not know the meaning of the signals
+
+What `SensoryPromptBuilder` passes to the LLM is a sequence of numbers like `signal_a: 0.73`. Since the LLM interprets this from scratch on each call, there is no guarantee that "signal_a = 0.73" carries the same semantic meaning across different invocations.
+
+For namings to form a consistent map of internal states:
+- Explicitly state the semantics of the signals in the prompt (e.g., "A represents the stability axis, where 0.7 is relatively highly stable"), or
+- Pass only descriptions of delta/trends instead of absolute values to make the LLM's interpretation context-dependent.
+
+### 3. Training data covers only 0.58 cycles of the circadian cycle
+
+```python
+dataset_size = 50000  # steps
+# signal_a period = 86400 steps
+# 50000 / 86400 ≈ 0.58 cycles
+```
+
+The model does not see the latter half of the 24-hour cycle in the training data and extrapolates during inference. Running CHORA for an extended period systematically increases prediction errors in the latter half of the signal_a cycle, causing artificial "surprises" unrelated to actual state changes.
+
+**Fix:** Extend the training data to cover at least 2 full cycles (172,800 steps).
+
+### 4. PulseGenerator state is lost on restart
+
+```typescript
+// Resets to step=0, signalBState=0.5, signalDState=0.3 on every CLI start
+const generator = new PulseGenerator();
+```
+
+After a restart, the database retains the last 32 steps of the previous session. The GRU uses them to predict the next pulse, but the generator starts from a completely different initial state. This discontinuity causes a burst of artificial surprise spikes immediately after startup.
+
+**Fix:** Persist `step` and state variables (`signalBState`, `signalDState`) in the `system_state` table and restore them on startup.
+
+### 5. `SensoryPromptBuilder.build` is called twice
+
+```typescript
+// packages/cli/src/index.ts
+
+// Built once for logging
+const rawPromptText = SensoryPromptBuilder.build(promptInput);   // 1st time
+
+// Also built again inside generateNaming
+const namingResult = await llm.generateNaming(promptInput);      // 2nd time
+```
+
+The exact same prompt is constructed twice on every run. Either `generateNaming` should accept a pre-built prompt string, or the build output should be passed down directly.
+
+### 6. `findSimilar` lacks a distance threshold
+
+```typescript
+// packages/core/src/memory/manager.ts
+// Even if the distance is 2.0, it gets passed to the LLM as a "similar past naming" as long as it fits in top-K.
+return scored.slice(0, topK).map(s => s.naming);
+```
+
+When there are only a few namings, completely different sensory states are presented as "similar past experiences." Without a maximum distance threshold (e.g., 0.5), the LLM will continue to reuse unrelated past names.
+
+**Fix:**
+```typescript
+.filter(s => s.distance < 0.5)  // Filter by threshold
+.slice(0, topK)
+```
+
+### 7. `OllamaProvider` does not validate the range of confidence
+
+```typescript
+// packages/core/src/translation/ollama.ts
+confidence: typeof parsed.confidence === 'number' ? parsed.confidence : 0.8
+```
+
+Even if the LLM returns `confidence: 5.0` or `confidence: -0.2`, it passes through. Since the decay calculation assumes confidence is within `[0, 1]`, out-of-range values will break memory management.
+
+**Fix:**
+```typescript
+confidence: typeof parsed.confidence === 'number'
+  ? Math.max(0, Math.min(1, parsed.confidence))
+  : 0.8
+```
+
+### 8. Memory decay is based on cycle counts instead of wall-clock time
+
+Decay runs strictly every 50 cycles (~50 seconds). If CHORA is paused and resumed, the elapsed time during the pause is not reflected in the decay. To represent chronological "forgetting," a timestamp-based decay using `created_at` / `last_accessed_at` would better align with the project's intent.
+
+---
+
+## Conceptual Issues
+
+While this project is advertised as a "pre-linguistic consciousness simulation," its current behavior is closer to:
+
+> **A system that prompts an LLM to name sensory states whenever stochastic spikes are detected.**
+
+In reality, it behaves more like a **noise-driven generative poetry machine**. While this is interesting in its own right, if the framework of "consciousness" is meant to guide design decisions, the following points are worth considering:
+
+- **Lack of context dependency in internal states:** Namings are currently generated using only the "current pulse + top-K neighbors," with no dependency between consecutive events. The previous name does not influence the context of the next.
+- **Consistency vs. fluctuation in naming:** The same signal values can yield different names due to the LLM's stochastic output. It remains ambiguous whether this is intended as a feature ("fluctuation") or if it should be controlled for consistency.
+- **GRU is never updated:** Periodically fine-tuning the model using actual data collected at runtime would establish a more genuine "learning" loop.
+
+---
+
+## Priority Summary
+
+| Priority | Issue | Target File | Difficulty |
+|---|---|---|---|
+| High | Persist PulseGenerator state (restart artifact) | `generator.ts`, `db/client.ts`, `cli/index.ts` | Small |
+| High | Extend training data to 2+ cycles | `training/train.py` | Very Small |
+| Medium | Add distance threshold to `findSimilar` | `memory/manager.ts` | Very Small |
+| Medium | Clamp confidence to `[0,1]` | `translation/ollama.ts` | Very Small |
+| Medium | Resolve double invocation of `SensoryPromptBuilder.build` | `cli/index.ts`, `translation/ollama.ts` | Small |
+| Low | Clarify signal semantics in prompt | `translation/prompt.ts` | Design choice |
+| Low | Change decay to timestamp-based | `memory/manager.ts`, `db/client.ts` | Medium |
+
+================================================================================
+
+# CHORA プロジェクトレビュー (日本語)
 
 レビュー日: 2026-06-07
 
@@ -104,7 +244,7 @@ confidence: typeof parsed.confidence === 'number'
   : 0.8
 ```
 
-### 8. メモリ decay がウォールクロックではなくサイクル数ベース
+### 8. メモリー decay がウォールクロックではなくサイクル数ベース
 
 decay は 50 サイクルごと（≈ 50 秒間隔）に固定で走ります。CHORA を一時停止して再開した場合、停止中の時間経過が decay に反映されません。時系列的な「忘却」を表現するなら `created_at` / `last_accessed_at` を使ったタイムスタンプベースの decay の方が意図に合います。
 

@@ -3,6 +3,146 @@
 > **"In the chora, before the name, the pulse waits to be heard."**  
 > *コーラの中で、名前を持つ前のパルスが、聞かれることを待っている。*
 
+CHORA is a research and experimental software project that simulates the **"process of self-consciousness emerging from undifferentiated bodily signals through linguistic translation."**
+
+Unlike traditional AI, which starts with language (symbols), CHORA starts with a sequence of meaningless pulses (bodily signals), predicts them, and prompts an LLM to name and describe the parts where prediction errors ("surprise") occur. By cycling through a loop that remembers and naturally selects these names, we observe how self-consciousness is constructed.
+
+---
+
+## 1. Core Hypothesis
+
+Consciousness arises as a **byproduct of a self-organizing translation loop** that continuously asks "What is this?", names, and categorizes the prediction errors of undifferentiated interoceptive (bodily) signals.
+
+```
+ Undifferentiated Pulse (Layer 0) 
+        ↓
+ Prediction Error Calculation (Layer 1) ── [Surprise exceeds threshold]
+        ↓
+ Sensory Naming by LLM (Layer 2)
+        ↓
+ Self-Model Memory & Decay (Layer 3) ── [Construction of Self-Sensation]
+```
+
+---
+
+## 2. Architecture: Four-Layer Structure
+
+CHORA is designed and implemented across four independent layers:
+
+1. **Layer 0: Pulse Generator (Sensory Signal Source)**
+   - Generates a continuous 4-dimensional vector with temporal correlation every second (simulating hormonal changes, stress levels, oxytocin, serotonin, etc.).
+2. **Layer 1: Predictive Model**
+   - Predicts the next pulse based on the history of the last 32 steps using a lightweight GRU ONNX model trained and exported via Python/PyTorch. The root-mean-square error (RMSE) between prediction and actual value is calculated as "Surprise."
+3. **Layer 2: Translation Loop**
+   - When the surprise exceeds a threshold, the system calls a local LLM (Ollama), passing the history of past namings as context. The LLM either assigns a new name or reuses an existing name for the "current interoceptive sensation."
+4. **Layer 3: Self-Naming Memory**
+   - Saves named labels and 4D vector patterns to SQLite. For similar patterns, it searches using Euclidean distance. Reused names are "reinforced" (reference count increases). Every 50 cycles, the confidence of memory decays (natural selection of memory), and names with confidence below a threshold are forgotten.
+
+---
+
+## 3. Monorepo Package Structure
+
+This project uses a monorepo structure managed by `pnpm` workspaces.
+
+```
+chora/
+├── packages/
+│   ├── core/         # Core module (Pulse, ONNX inference, SQLite DB, MemoryManager)
+│   ├── cli/          # Command-line execution loop runner
+│   ├── server/       # Telemetry distribution Express WebSocket API server (Port: 3001)
+│   ├── web/          # React + Vite visualization dashboard (Port: 3000)
+│   └── training/     # Python GRU predictive model training and ONNX export
+├── models/           # Trained ONNX models (.onnx)
+├── data/             # SQLite database files (.db)
+└── docs/             # Design specifications and documentation
+```
+
+---
+
+## 4. Quick Start
+
+### 4.1 Prerequisites
+- **Node.js**: v22.5.0 or higher (Node v24 recommended)
+- **Python**: 3.10 or higher
+- **pnpm**: Package manager
+- **Ollama**: Local LLM environment running
+
+### 4.2 Setup
+
+1. **Install repository dependencies**
+   ```bash
+   pnpm install
+   ```
+
+2. **Prepare Ollama Model**
+   With Ollama running, pull the default LLM model (`llama3`).
+   ```bash
+   ollama pull llama3
+   ```
+
+3. **Train Predictive Model & Export to ONNX (Optional)**
+   A pre-trained model `models/predictive_model.onnx` is already provided, but if you wish to retrain it, run:
+   ```bash
+   # Build virtual environment and install dependencies
+   cd packages/training
+   python -m venv .venv
+   source .venv/bin/activate  # Windows: .venv\Scripts\activate
+   pip install -r requirements.txt
+
+   # Train and export model
+   python train.py
+   ```
+
+4. **Build**
+   Build the TypeScript code and React assets.
+   ```bash
+   pnpm build
+   ```
+
+---
+
+## 5. Running the Application
+
+To run the CHORA loop and observe it on the real-time visualization dashboard, run the following three processes simultaneously (or in separate terminals).
+
+### 1. Start Telemetry Server (Port 3001)
+```bash
+pnpm --filter @chora/server start
+```
+
+### 2. Start Visualization UI (Port 3000)
+Start the Vite dev server.
+```bash
+pnpm --filter @chora/web dev
+```
+
+### 3. Start CLI Core Loop
+Start the second-by-second simulation and LLM naming process.
+```bash
+pnpm --filter @chora/cli start
+```
+
+Once running, open **`http://localhost:3000/`** in your browser to access the real-time visualization:
+- **Pulse Stream View**: Recharts time-series plot comparing predicted signals (dotted lines) and actual values (solid lines).
+- **Surprise Heatmap**: A history tracker showing the magnitude of prediction errors.
+- **Naming Cloud**: A word cloud representing active sensory memories, scaled by frequency (size) and opacity (decay/confidence).
+- **Self-Model Map**: An SVG map projecting 4D sensory patterns into 2D space, connecting semantically close namings with edges (lines).
+- **Timeline**: A chronological list of sensory naming and qualitative descriptions by the LLM.
+
+---
+
+## 6. License
+
+- **Program Code**: [MIT License](LICENSE)
+- **Documentation and Specifications**: [Creative Commons Attribution-ShareAlike 4.0 International (CC BY-SA 4.0)](https://creativecommons.org/licenses/by-sa/4.0/)
+
+---
+
+# CHORA (日本語)
+
+> **"In the chora, before the name, the pulse waits to be heard."**  
+> *コーラの中で、名前を持つ前のパルスが、聞かれることを待っている。*
+
 CHORA（コーラ）は、**「未分化の身体信号から言語的翻訳を通じて自己意識が立ち上がるプロセス」**をシミュレートする研究・実験的ソフトウェアプロジェクトです。
 
 伝統的なAIが言語（記号）から出発するのに対し、CHORAは無意味なパルス列（身体信号）から出発し、それを予測し、予測誤差（驚き）が生じた部分をLLMによって命名・記述させ、その命名を記憶・自然淘汰させるループを回すことで、自己意識がどのように構築されるかを観察します。

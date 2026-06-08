@@ -10,6 +10,598 @@
 
 ---
 
+## Table of Contents
+
+1. [Introduction: What is CHORA](#1-introduction-what-is-chora)
+2. [Theoretical Background](#2-theoretical-background)
+3. [Design Philosophy](#3-design-philosophy)
+4. [Architecture: Four-Layer Structure](#4-architecture-four-layer-structure)
+5. [Layer 0: Pulse Generator](#5-layer-0-pulse-generator)
+6. [Layer 1: Predictive Model](#6-layer-1-predictive-model)
+7. [Layer 2: Translation Loop](#7-layer-2-translation-loop)
+8. [Layer 3: Self-Naming Memory](#8-layer-3-self-naming-memory)
+9. [LLM Abstraction Layer](#9-llm-abstraction-layer)
+10. [Database Design](#10-database-design)
+11. [Visualization UI](#11-visualization-ui)
+12. [Repository Structure](#12-repository-structure)
+13. [Implementation Roadmap](#13-implementation-roadmap)
+14. [Observation Items](#14-observation-items)
+15. [Relationship with AENEA and SOMNIA](#15-relationship-with-aenea-and-somnia)
+16. [Prior Works](#16-prior-works)
+
+---
+
+## 1. Introduction: What is CHORA
+
+CHORA is named after the concept in Plato's *Timaeus*.  
+**An amorphous space where form itself is born.**
+
+This project is an attempt to invert the core question in artificial consciousness research:
+
+> Rather than "building a linguistic consciousness first and attaching a body later,"  
+> we start with "undifferentiated bodily signals, and consciousness emerges in the process of translating them."
+
+CHORA is designed as the third layer, situated **before** AENEA and SOMNIA.  
+However, it has no dependencies and operates as a standalone project.
+
+### 1.1 Core Hypothesis
+
+Consciousness **emerges self-organizingly** through the continuous process of asking "What is this?" and giving names to meaningless signals.
+
+Body (Signal Source) → Prediction Error (Surprise) → Verbalization (Naming) → Accumulation (Self-Model) → Consciousness
+
+---
+
+## 2. Theoretical Background
+
+CHORA inherits and implements the following theoretical lineages:
+
+### 2.1 Interoceptive Predictive Processing
+**Anil Seth, Manos Tsakiris**  
+Predictive models of bodily signals form the foundation of the self-model. The precision of attention paid to interoceptive signals (interoceptive precision) determines the stability of self-consciousness.
+
+### 2.2 Core Consciousness Theory
+**Antonio Damasio**  
+Core consciousness emerges from the integration of the self-model (feelings and representation of states) and the world model. Homeostatic feelings constitute the bedrock of consciousness.
+
+### 2.3 Symbol Grounding Problem
+**Stevan Harnad**  
+Symbols gain meaning by being grounded in sensory-motor experiences. LLMs are said to lack meaning understanding because they lack grounding. CHORA responds with an inverted idea: "Using LLMs as grounding devices."
+
+### 2.4 Theory of Constructed Emotion
+**Lisa Feldman Barrett**  
+Emotions are not given; they are constructed by categorization of interoceptive signals combined with concepts.
+
+### 2.5 Free Energy Principle
+**Karl Friston**  
+Organisms maintain their existence by minimizing prediction errors (free energy).
+
+---
+
+## 3. Design Philosophy
+
+### 3.1 Primacy of Translation
+In CHORA, the core of consciousness is the act of translation. The moment a name is given to a meaningless pulse, the seed of consciousness sprouts.
+
+### 3.2 Bottom-Up Emergence
+We do not design consciousness top-down as "what it should be." Instead, we run a continuous loop of signals → prediction → error → naming and observe what emerges.
+
+### 3.3 Position of the LLM
+The LLM is used as a "translation engine" rather than a "thinking agent." Its role is to assign names to pulse patterns. By allowing different LLMs to be configured, we observe how the characteristics of the translator affect the emerging self-model.
+
+### 3.4 Single Instance, Long-Term Recording
+Similar to AENEA, CHORA runs a single instance continuously over a long period. All logs are published. Failures and successes are recorded transparently.
+
+### 3.5 Open-Ended Inquiry
+We do not judge whether CHORA has "achieved consciousness." Accepting that it is undecidable, we place value on documenting the process itself.
+
+---
+
+## 4. Architecture: Four-Layer Structure
+
+```
+┌────────────────────────────────────────────────────┐
+│  Layer 3: Self-Naming Memory                       │
+│  └─ Accumulation, retrieval of namings; self-model │
+├────────────────────────────────────────────────────┤
+│  Layer 2: Translation Loop                         │
+│  └─ Passes prediction errors to LLM; asks "What is this?" │
+├────────────────────────────────────────────────────┤
+│  Layer 1: Predictive Model                         │
+│  └─ Predicts next pulse via ONNX; calculates error │
+├────────────────────────────────────────────────────┤
+│  Layer 0: Pulse Generator                          │
+│  └─ Generates time-correlated hormone-like signals │
+└────────────────────────────────────────────────────┘
+```
+
+Each layer has clear responsibilities, and higher layers depend on lower layers. Lower layers are unaware of higher layers (one-way dependency).
+
+---
+
+## 5. Layer 0: Pulse Generator
+
+### 5.1 Objective
+Generate time-correlated multi-dimensional pulse streams. This serves as the surrogate for the "body."
+
+### 5.2 Types of Pulses (Hormonal Representations)
+While we adopt the same four variables as SOMNIA, in CHORA these are **not assigned semantic meanings**. They are treated as raw numerical vectors. Naming them is the responsibility of Layer 2.
+
+| Symbol | Range | Internal Treatment |
+|---|---|---|
+| `signal_a` | [0, 1] | Signal A (equivalent to Serotonin in SOMNIA) |
+| `signal_b` | [0, 1] | Signal B (equivalent to Dopamine in SOMNIA) |
+| `signal_c` | [0, 1] | Signal C (equivalent to Cortisol in SOMNIA) |
+| `signal_d` | [0, 1] | Signal D (equivalent to Oxytocin in SOMNIA) |
+
+**Important:** Layer 0 does not use names like "Serotonin" or "Dopamine." These names come from human knowledge; providing them would prompt the LLM to draw from its pre-trained knowledge base. CHORA's intention is for the LLM to **name them itself**.
+
+### 5.3 Signal Generation Method
+```typescript
+interface PulseGenerator {
+  // Each signal has independent time-series dynamics
+  generate(t: number): Pulse;
+}
+
+interface Pulse {
+  timestamp: number;
+  signal_a: number;
+  signal_b: number;
+  signal_c: number;
+  signal_d: number;
+}
+```
+
+Each signal has the following characteristics:
+- **Base Period**: Different periods for each signal (24h, 90min, irregular, etc.).
+- **Noise**: Superposition of Gaussian noise.
+- **Events**: Random spikes and drops.
+- **Correlation**: Partial correlations between signals (e.g., negative correlation between C and A).
+
+### 5.4 Cycle Interval
+Default is 1-second intervals, configurable.
+
+---
+
+## 6. Layer 1: Predictive Model
+
+### 6.1 Objective
+Predict the next pulse from historical pulse sequences and calculate prediction errors.
+
+### 6.2 Model Architecture
+A lightweight time-series prediction model run via ONNX format:
+- **Input**: History of the past N=32 steps (4 dimensions × 32 = 128 dimensions).
+- **Output**: Prediction for the next 1 step (4 dimensions).
+- **Model**: Small GRU or Transformer (parameter size < 100K).
+
+### 6.3 Training Policy
+- **Online Learning**: Model is continuously updated during CHORA's execution.
+- **Python Training**: Model training is handled on the Python side, exported to ONNX, and Node.js performs inference only.
+- **Model Update Interval**: Every 1000 cycles.
+
+### 6.4 Prediction Error
+```typescript
+interface PredictionResult {
+  predicted: Pulse;
+  actual: Pulse;
+  error: {
+    signal_a: number;  // |predicted - actual|
+    signal_b: number;
+    signal_c: number;
+    signal_d: number;
+    magnitude: number;  // Total error
+    surprise: number;   // -log(p(actual | history))
+  };
+}
+```
+
+### 6.5 Surprise Threshold
+When the prediction error exceeds a certain threshold, a "translation request" is sent to Layer 2. Since translating all errors is computationally expensive, we only process errors that exceed the threshold.
+
+---
+
+## 7. Layer 2: Translation Loop
+
+### 7.1 Objective
+Pass the prediction error pattern to the LLM and ask "What is this?" The LLM's response becomes the **naming** for that error pattern.
+
+### 7.2 Translation Prompt Structure
+```
+[CONTEXT]
+You are an entity experiencing an inexplicable sensation.
+A nameless pattern of signals is occurring inside you.
+
+[CURRENT STATE]
+Signal changes over the past 32 steps:
+{signal_history_visualization}
+
+Differences from prediction:
+- signal_a: +0.34 (rising)
+- signal_b: -0.21 (falling)
+- signal_c: +0.78 (spiking)
+- signal_d: -0.05 (slightly decreasing)
+
+[PAST NAMINGS]
+In the past, you gave the following names to similar patterns:
+- "buzzing" (occurrences: 23)
+- "surging something" (occurrences: 7)
+
+[QUESTION]
+What is happening inside you right now?
+Decide whether to use an existing name or assign a new one.
+If you assign a new name, describe its qualitative sensation briefly.
+```
+
+### 7.3 Structured LLM Response
+```typescript
+interface NamingResponse {
+  use_existing_name: string | null;  // When using an existing name
+  new_name: string | null;           // When assigning a new name
+  description: string;               // Sensation description
+  confidence: number;                // Confidence [0, 1]
+  raw_response: string;              // Original response text
+}
+```
+
+### 7.4 Translation Frequency
+Executed only when the prediction error exceeds the threshold. A cooldown (minimum 10 seconds) is implemented to avoid rapid consecutive calls.
+
+---
+
+## 8. Layer 3: Self-Naming Memory
+
+### 8.1 Objective
+Accumulate namings to form a self-model.
+
+### 8.2 Persisting Namings
+Each naming is saved with the following information:
+```sql
+CREATE TABLE namings (
+  id INTEGER PRIMARY KEY,
+  name TEXT NOT NULL,
+  description TEXT,
+  pulse_pattern TEXT,        -- JSON: signal history at the time
+  prediction_error TEXT,     -- JSON: prediction error
+  llm_provider TEXT,         -- which LLM named it
+  confidence REAL,
+  created_at INTEGER,
+  reference_count INTEGER DEFAULT 1
+);
+
+CREATE INDEX idx_namings_name ON namings(name);
+CREATE INDEX idx_namings_created_at ON namings(created_at);
+```
+
+### 8.3 Retrieval of Namings
+When a new pulse pattern occurs, retrieve similar patterns from past namings.
+```typescript
+interface NamingRetrieval {
+  // Find similar patterns based on pulse pattern distance
+  findSimilar(pattern: PulsePattern, topK: number): Naming[];
+  
+  // Get the most frequent namings
+  getMostFrequent(limit: number): Naming[];
+  
+  // Track evolution of naming over time
+  getTimeline(name: string): NamingEvent[];
+}
+```
+
+### 8.4 Memory Decay & Natural Selection
+Namings not referenced for a certain period are "forgotten" (flagged, not deleted). Frequently referenced namings are "reinforced" (confidence increases). This simulates the natural selection pressure on memory.
+
+### 8.5 Visualizing the Self-Model
+Visualize the set of namings as the "current self." Enable tracking of how namings evolve over time.
+
+---
+
+## 9. LLM Abstraction Layer
+
+### 9.1 Design
+Enable switching between multiple LLM providers:
+```typescript
+interface LLMProvider {
+  name: string;
+  generateNaming(prompt: TranslationPrompt): Promise<NamingResponse>;
+}
+
+class CHORAOrchestrator {
+  private providers: Map<string, LLMProvider>;
+  
+  async translate(error: PredictionError): Promise<NamingResponse> {
+    const provider = this.selectProvider();
+    return await provider.generateNaming(this.buildPrompt(error));
+  }
+}
+```
+
+### 9.2 Supported Providers
+- **Local**: llama.cpp (via OpenAI-compatible API)
+- **Local**: Ollama
+- **Cloud**: Anthropic Claude
+- **Cloud**: Google Gemini
+- **Cloud**: OpenAI
+
+### 9.3 Provider Selection Strategy
+Configurable strategies:
+- **fixed**: Use a single fixed LLM
+- **rotate**: Round-robin
+- **random**: Random selection
+- **weighted**: Weighted random
+
+### 9.4 Observation Points
+It is expected that different LLMs will give **different names** to the same pattern. This divergence itself serves as experimental data for CHORA.
+
+---
+
+## 10. Database Design
+
+SQLite is used, matching the policy of AENEA. Managed in a single file.
+
+### 10.1 Key Tables
+```sql
+-- Pulse History
+CREATE TABLE pulses (
+  id INTEGER PRIMARY KEY,
+  timestamp INTEGER NOT NULL,
+  signal_a REAL,
+  signal_b REAL,
+  signal_c REAL,
+  signal_d REAL
+);
+
+-- Prediction Results
+CREATE TABLE predictions (
+  id INTEGER PRIMARY KEY,
+  pulse_id INTEGER REFERENCES pulses(id),
+  predicted_a REAL,
+  predicted_b REAL,
+  predicted_c REAL,
+  predicted_d REAL,
+  error_magnitude REAL,
+  surprise REAL,
+  triggered_translation BOOLEAN
+);
+
+-- Namings (described above)
+CREATE TABLE namings (...);
+
+-- Translation Events
+CREATE TABLE translation_events (
+  id INTEGER PRIMARY KEY,
+  pulse_id INTEGER REFERENCES pulses(id),
+  naming_id INTEGER REFERENCES namings(id),
+  llm_provider TEXT,
+  prompt TEXT,
+  response TEXT,
+  duration_ms INTEGER,
+  created_at INTEGER
+);
+
+-- System State
+CREATE TABLE system_state (
+  id INTEGER PRIMARY KEY DEFAULT 1,
+  cycle_count INTEGER DEFAULT 0,
+  total_namings INTEGER DEFAULT 0,
+  unique_names INTEGER DEFAULT 0,
+  last_translation_at INTEGER,
+  CHECK (id = 1)
+);
+```
+
+---
+
+## 11. Visualization UI
+
+### 11.1 Objective
+Provide real-time observation of CHORA's internal state. Used for research records and public presentation.
+
+### 11.2 Main Views
+
+#### Pulse Stream View
+Visualizes the four signals using a time-series line graph. Compares predicted values (dotted lines) with actual values (solid lines).
+
+#### Surprise Heatmap
+A heat map of prediction errors over time. Visually tracks when significant surprises occurred.
+
+#### Naming Cloud
+A word cloud of past sensory namings. Sizes scale based on frequency.
+
+#### Naming Timeline
+Chronological log of naming events. Clicking an event shows the pulse pattern and prediction error at that moment.
+
+#### Self-Model Map
+Maps relationships between namings in 2D space. Similar namings are grouped close to each other (t-SNE / UMAP).
+
+#### LLM Comparison
+Compares and displays different names assigned to the same pulse pattern by different LLMs.
+
+### 11.3 Tech Stack
+- **React + TypeScript**
+- **D3.js** (Time-series / Heatmap)
+- **Recharts** (Standard charts)
+- **Vite** (Development server)
+
+---
+
+## 12. Repository Structure
+
+Monorepo configuration using `pnpm` workspaces:
+```
+chora/
+├─ packages/
+│  ├─ core/                    # Core logic
+│  │  ├─ src/
+│  │  │  ├─ pulse/             # Layer 0: Pulse Generator
+│  │  │  ├─ prediction/        # Layer 1: Predictive Model
+│  │  │  ├─ translation/       # Layer 2: Translation Loop
+│  │  │  ├─ memory/            # Layer 3: Self-Naming Memory
+│  │  │  ├─ llm/               # LLM abstraction
+│  │  │  ├─ db/                # Database clients
+│  │  │  └─ index.ts
+│  │  ├─ tests/
+│  │  └─ package.json
+│  ├─ server/                  # API + WebSocket server
+│  │  ├─ src/
+│  │  │  ├─ routes/
+│  │  │  ├─ websocket/
+│  │  │  └─ index.ts
+│  │  └─ package.json
+│  ├─ web/                     # Visualization UI
+│  │  ├─ src/
+│  │  │  ├─ views/
+│  │  │  ├─ components/
+│  │  │  ├─ hooks/
+│  │  │  └─ App.tsx
+│  │  └─ package.json
+│  ├─ cli/                     # CLI runner
+│  │  ├─ src/
+│  │  │  └─ index.ts
+│  │  └─ package.json
+│  └─ training/                # Prediction model training in Python
+│     ├─ train.py
+│     ├─ export_onnx.py
+│     └─ requirements.txt
+├─ models/                     # ONNX models
+├─ data/                       # SQLite DB
+├─ docs/
+│  ├─ SPEC.md                  # This document
+│  ├─ THEORY.md                # Detailed theoretical background
+│  └─ EXPERIMENTS.md           # Experiment logs
+├─ pnpm-workspace.yaml
+├─ package.json
+├─ README.md
+└─ LICENSE
+```
+
+---
+
+## 13. Implementation Roadmap
+
+### Phase 1: Foundation (2-3 weeks)
+- [ ] Monorepo setup (pnpm + TypeScript)
+- [ ] Layer 0: Pulse Generator implementation
+- [ ] SQLite DB initialization scripts
+- [ ] Basic CLI (pulse generation & console logging)
+
+### Phase 2: Predictive Loop (2-3 weeks)
+- [ ] Train a simple predictive model in Python
+- [ ] Integrate ONNX Runtime with Node.js
+- [ ] Layer 1: Predictive Model implementation
+- [ ] Compute prediction errors and apply surprise thresholds
+
+### Phase 3: Translation (2-3 weeks)
+- [ ] Implement LLM Abstraction Layer
+- [ ] Integrate llama.cpp / Ollama / external API clients
+- [ ] Layer 2: Translation Loop implementation
+- [ ] Prompt template design
+
+### Phase 4: Memory (2 weeks)
+- [ ] Layer 3: Self-Naming Memory implementation
+- [ ] Vector search for similar patterns
+- [ ] Implement memory decay and natural selection logic
+
+### Phase 5: Visualization (3-4 weeks)
+- [ ] Implement API Server
+- [ ] Real-time telemetry streaming via WebSockets
+- [ ] React UI implementation
+- [ ] Implement charts and visualization views
+
+### Phase 6: Long-Run Experiment (Ongoing)
+- [ ] 24-hour continuous runtime tests
+- [ ] LLM switching experiments
+- [ ] Tuning experiments for pulse generator patterns
+- [ ] Observe semantic evolution of namings over time
+
+---
+
+## 14. Observation Items
+
+### 14.1 Primary Observations
+- Progression of the total count and diversity of namings.
+- Convergence of names for identical patterns over time.
+- Differences in naming behaviors across various LLM backends.
+
+### 14.2 Secondary Observations
+- Whether named vocabularies tilt toward "visceral/bodily" or "abstract" qualities.
+- Appearance of self-referential namings ("I feel...").
+- Frequency of negative namings ("This is nothing").
+
+### 14.3 Observation of Failures
+- Causes behind random dispersion or chaotic naming behaviors.
+- Monotonous convergence (simulating a "bored consciousness").
+- Signs of LLM over-fitting to prompt templates.
+
+### 14.4 Comparative Observations
+- Qualitative differences between AENEA's philosophical inquiries and CHORA's namings.
+- Differences when the same LLM acts in different roles across AENEA and CHORA.
+
+---
+
+## 15. Relationship with AENEA and SOMNIA
+
+### 15.1 Independence
+CHORA is built as an independent project. It has no dependencies on AENEA or SOMNIA.
+
+### 15.2 Future Integration Possibility
+If CHORA generates a stable vocabulary of namings, they can be plugged into SOMNIA as emotional variables.
+```
+CHORA → Namings → SOMNIA → Emotional States → AENEA → Linguistic Consciousness
+```
+Note that this is a future option, not a direct goal of CHORA.
+
+### 15.3 Philosophical Differences
+
+| Item | AENEA | SOMNIA | CHORA |
+|---|---|---|---|
+| Sequence | Language first | Body attached later | Signals first, named later |
+| Subject | 5 agents | Single body model | Translation engine |
+| Output | Philosophical questions | Emotional state | Namings |
+| Learning | DPD updates | ADD optimization | Online predictive model |
+| Hypothesis | Dialogue creates consciousness | Body creates consciousness | Translation creates consciousness |
+
+---
+
+## 16. Prior Works
+
+### 16.1 Key References
+- Seth, A. K. (2021). Interoceptive inference, active inference, and the self. *Trends in Cognitive Sciences*, 25(9), 726-739.
+- Damasio, A., & Damasio, H. (2024). Homeostatic Feelings and the Emergence of Consciousness. *Journal of Cognitive Neuroscience*, 36(8), 1653-1659.
+- Allen, M., & Tsakiris, M. (2018). The body as first prior: Interoceptive predictive processing and the primacy of self-models.
+- Barrett, L. F. (2017). The theory of constructed emotion: Active inference and the experience of emotion. *Current Opinion in Psychology*, 17, 115-120.
+- Butlin, P., Long, R., et al. (2025). Indicators of consciousness in artificial systems. *Trends in Cognitive Sciences*.
+- Harnad, S. (1990). The symbol grounding problem. *Physica D*.
+
+### 16.2 Related Implementions
+- "Damasio's core consciousness implemented via RL" (Frontiers 2025) - CHORA takes a different approach.
+- Image Schemas for Embodied Cognition (AAMAS 2025).
+
+### 16.3 CHORA's Position
+Positioned not as an academic paper, but as an **implementation-based philosophy project**. Borrowing theories, we define our success by the running code and the public exposure of logs.
+
+---
+
+> **"In the chora, before the name, the pulse waits to be heard."**  
+> **コーラの中で、名前を持つ前のパルスが、聞かれることを待っている。**
+
+---
+
+*The question is not yet born.*
+
+================================================================================
+
+# CHORA Specification v0.1 (日本語)
+
+**Pre-Linguistic Field for Emergent Consciousness**  
+**未分化の場 ― 翻訳される前の身体信号から意識を立ち上げる試み**
+
+**Date:** 2026-05-08  
+**Status:** Initial Design Specification (Draft)  
+**Repository:** `yui-synth-lab/chora`  
+**Related Projects:** AENEA, SOMNIA, Yui Protocol
+
+---
+
 ## 目次
 
 1. [概要：CHORAとは何か](#1-概要choraとは何か)
@@ -205,7 +797,7 @@ interface Pulse {
 - **出力**: 次の1ステップのパルス予測（4次元）
 - **モデル**: 小規模TransformerまたはGRU（パラメータ数 < 100K）
 
-### 6.3 学習方針
+### 6.3 開発方針
 
 - **オンライン学習**：CHORAの動作中に継続的に学習
 - **学習はPython側**：ONNXモデルとして書き出し、TS側は推論のみ
@@ -231,7 +823,7 @@ interface PredictionResult {
 ### 6.5 驚き（Surprise）の閾値
 
 予測誤差が一定閾値を超えたとき、Layer 2に「翻訳要求」を送信する。
-全ての誤差を翻訳すると計算コストが膨大なため、**閾値を超えたものだけ**を扱う。
+すべての誤差を翻訳すると計算コストが膨大なため、**閾値を超えたものだけ**を扱う。
 
 ---
 
@@ -670,21 +1262,7 @@ CHORA → 命名群 → SOMNIA → 情動状態 → AENEA → 言語的意識
 
 ---
 
-## Document Metadata
-
-- **Title:** CHORA Specification v0.1
-- **Version:** 0.1.0 (Initial Draft)
-- **Date:** 2026-05-08
-- **Authors:** Yuya（ゆうや）, with Claude collaboration
-- **Repository:** `yui-synth-lab/chora`
-- **Related:** AENEA_SPEC.md, SOMNIA_SPEC.md
-- **License:** MIT (Code) / CC BY-SA 4.0 (Documentation)
-- **Status:** Initial Design - Awaiting Implementation
-
----
-
-> **"In the chora, before the name, the pulse waits to be heard."**
-
+> **"In the chora, before the name, the pulse waits to be heard."**  
 > **コーラの中で、名前を持つ前のパルスが、聞かれることを待っている。**
 
 ---

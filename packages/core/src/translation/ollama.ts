@@ -6,7 +6,7 @@ export class OllamaProvider implements LLMProvider {
   private model: string;
   private endpoint: string;
 
-  constructor(model = 'llama3', endpoint = 'http://localhost:11434/api/generate') {
+  constructor(model = 'hf.co/LiquidAI/LFM2-8B-A1B-GGUF:Q4_K_M', endpoint = 'http://localhost:11434/api/generate') {
     this.model = model;
     this.endpoint = endpoint;
   }
