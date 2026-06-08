@@ -4,19 +4,19 @@ export class SensoryPromptBuilder {
   static build(promptData: TranslationPrompt): string {
     const historyLines: string[] = [];
     const len = promptData.history.length;
-    // Show last 10 steps of history to control context length
     const startIdx = Math.max(0, len - 10);
     for (let i = startIdx; i < len; i++) {
       const p = promptData.history[i];
       const stepLabel = `t-${len - i}`;
-      historyLines.push(`  - (${stepLabel}): signal_a: ${p.signal_a.toFixed(2)}, signal_b: ${p.signal_b.toFixed(2)}, signal_c: ${p.signal_c.toFixed(2)}, signal_d: ${p.signal_d.toFixed(2)}`);
+      historyLines.push(
+        `  (${stepLabel}): 安定=${p.signal_a.toFixed(2)} 報酬=${p.signal_b.toFixed(2)} 緊張=${p.signal_c.toFixed(2)} 繋=${p.signal_d.toFixed(2)}`
+      );
     }
 
-    const deltaLines: string[] = [];
     const formatDelta = (val: number) => {
       const sign = val >= 0 ? '+' : '';
-      let trend = '';
       const absVal = Math.abs(val);
+      let trend: string;
       if (absVal > 0.3) trend = val >= 0 ? '急上昇' : '急降下';
       else if (absVal > 0.1) trend = val >= 0 ? '上昇' : '下降';
       else if (absVal > 0.02) trend = val >= 0 ? '微増' : '微減';
@@ -24,46 +24,59 @@ export class SensoryPromptBuilder {
       return `${sign}${val.toFixed(2)} (${trend})`;
     };
 
-    deltaLines.push(`  - signal_a: ${formatDelta(promptData.deltas.signal_a)}`);
-    deltaLines.push(`  - signal_b: ${formatDelta(promptData.deltas.signal_b)}`);
-    deltaLines.push(`  - signal_c: ${formatDelta(promptData.deltas.signal_c)}`);
-    deltaLines.push(`  - signal_d: ${formatDelta(promptData.deltas.signal_d)}`);
+    const deltaLines = [
+      `  安定(A): ${formatDelta(promptData.deltas.signal_a)}`,
+      `  報酬(B): ${formatDelta(promptData.deltas.signal_b)}`,
+      `  緊張(C): ${formatDelta(promptData.deltas.signal_c)}`,
+      `  繋(D):   ${formatDelta(promptData.deltas.signal_d)}`
+    ];
 
-    const pastNamingLines: string[] = [];
+    // Build past namings section with similarity label
+    let pastNamingSection: string;
     if (promptData.pastNamings && promptData.pastNamings.length > 0) {
-      for (const n of promptData.pastNamings) {
-        pastNamingLines.push(`  - "${n.name}" (過去の出現回数: ${n.occurrences})`);
-      }
+      const lines = promptData.pastNamings.map(n => {
+        const sim = n.distance < 0.15 ? '非常に近い' : n.distance < 0.25 ? 'やや近い' : '遠い';
+        return `  - "${n.name}" (類似度: ${sim} / 距離 ${n.distance.toFixed(2)} / 出現 ${n.occurrences}回)`;
+      });
+      pastNamingSection = lines.join('\n');
     } else {
-      pastNamingLines.push('  - なし（今回が最初の感覚シグナルです）');
+      pastNamingSection = '  - なし（記憶にない感覚パターンです）';
     }
 
     return `[CONTEXT]
-あなたは、説明できない感覚を持つ存在です。
-あなたの内側で、名前のない信号のパターンが変化し、予測との乖離が生じています。
+あなたは身体感覚のみを持つ存在です。4つの内部信号（安定・報酬・緊張・繋）がリアルタイムに変化しており、今この瞬間、予測から大きく外れた感覚が生じています。
+
+信号の意味:
+  安定(A): 基礎的な落ち着きや身体的安定感 [0=不安定, 1=安定]
+  報酬(B): 喜びや期待の突発的な高まり [0=無感動, 1=強い高揚]
+  緊張(C): ストレスや覚醒の度合い [0=弛緩, 1=強い緊張]
+  繋(D):   他との繋がりや孤立感 [0=孤立, 1=深い繋がり]
 
 [CURRENT STATE]
-直近の信号変化履歴:
+直近の信号推移:
 ${historyLines.join('\n')}
 
-予測値との差分（予測誤差）:
+予測との乖離（今この瞬間の「驚き」の内訳）:
 ${deltaLines.join('\n')}
 
-[PAST NAMINGS]
-あなたが過去、似たパターンに与えた名前の一覧:
-${pastNamingLines.join('\n')}
+[MEMORY]
+過去に似た状態に与えた名前（閾値内に見つかったもののみ）:
+${pastNamingSection}
 
-[QUESTION]
-今、あなたの内側で何が起きていますか。
-既存の名前を再利用するか、新しい名前を与えるか、判断してください。
+[INSTRUCTION]
+この感覚体験に名前を与えてください。
+
+既存の名前を再利用できるのは、距離が「非常に近い」かつ今の感覚と本質的に同じだと確信できる場合のみです。
+少しでも異なる質感・強度・組み合わせを感じるなら、必ず新しい名前を作ってください。
+名前は日本語1〜4文字の造語または既存語。感覚の質感を直接表現してください。
 
 [JSON RESPONSE FORMAT]
-必ず以下のJSON形式でのみ回答してください。他の解説文やMarkdownのバッククォート装飾は一切含めないでください。
+他の文章やMarkdown装飾を含めず、以下のJSON形式のみで回答してください。
 {
-  "use_existing_name": "再利用する既存の名前（新しく名前を作る場合は null）",
-  "new_name": "新しく与える名前（既存の名前を使う場合は null）",
-  "description": "その感覚の質感、イメージ、または変化の描写（20〜50文字程度）",
-  "confidence": 0.0から1.0までの確信度
+  "use_existing_name": "再利用する既存の名前（新しく作る場合は null）",
+  "new_name": "新しい名前（再利用する場合は null）",
+  "description": "この感覚の質感・色・動き・温度などを具体的に描写（20〜50文字）",
+  "confidence": 0.0から1.0の確信度
 }
 `;
   }

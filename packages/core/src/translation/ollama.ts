@@ -19,7 +19,7 @@ export class OllamaProvider implements LLMProvider {
       prompt: promptText,
       stream: false,
       options: {
-        temperature: 0.3
+        temperature: 0.7
       },
       format: 'json'
     };

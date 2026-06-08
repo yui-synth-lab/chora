@@ -14,6 +14,7 @@ export interface TranslationPrompt {
   pastNamings: {
     name: string;
     occurrences: number;
+    distance: number;
   }[];
 }
 

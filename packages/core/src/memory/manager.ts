@@ -16,42 +16,32 @@ export class MemoryManager {
   findSimilar(
     currentPulse: { signal_a: number; signal_b: number; signal_c: number; signal_d: number },
     topK = 5,
-    maxDistance = 0.5
-  ): NamingRecord[] {
+    maxDistance = 0.3
+  ): { naming: NamingRecord; distance: number }[] {
     const active = this.db.getAllActiveNamings();
-    if (active.length === 0) {
-      return [];
-    }
+    if (active.length === 0) return [];
 
     const scored = active.map(n => {
       try {
         const pattern = JSON.parse(n.pulse_pattern) as {
-          signal_a: number;
-          signal_b: number;
-          signal_c: number;
-          signal_d: number;
+          signal_a: number; signal_b: number; signal_c: number; signal_d: number;
         };
-        
-        // Calculate 4D Euclidean distance
         const dA = currentPulse.signal_a - pattern.signal_a;
         const dB = currentPulse.signal_b - pattern.signal_b;
         const dC = currentPulse.signal_c - pattern.signal_c;
         const dD = currentPulse.signal_d - pattern.signal_d;
         const distance = Math.sqrt(dA * dA + dB * dB + dC * dC + dD * dD);
-
         return { naming: n, distance };
-      } catch (err) {
+      } catch {
         return { naming: n, distance: Infinity };
       }
     });
 
-    // Sort by distance ascending (closest first)
     scored.sort((a, b) => a.distance - b.distance);
 
     return scored
       .filter(s => s.distance <= maxDistance)
-      .slice(0, topK)
-      .map(s => s.naming);
+      .slice(0, topK);
   }
 
   /**

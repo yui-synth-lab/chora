@@ -196,8 +196,9 @@ export default function App() {
 
             // Reload active namings list to update word cloud and 2D map
             fetch('/api/namings')
-              .then(res => res.json())
+              .then(res => { if (!res.ok) throw new Error(`HTTP ${res.status}`); return res.json(); })
               .then(data => {
+                if (!Array.isArray(data)) return;
                 setNamings(data);
                 setStats(prev => ({
                   ...prev,
@@ -216,8 +217,9 @@ export default function App() {
           case 'decay':
             // Reload active namings to display decayed confidences and forgotten values
             fetch('/api/namings')
-              .then(res => res.json())
+              .then(res => { if (!res.ok) throw new Error(`HTTP ${res.status}`); return res.json(); })
               .then(data => {
+                if (!Array.isArray(data)) return;
                 setNamings(data);
                 setStats(prev => ({
                   ...prev,
@@ -269,7 +271,7 @@ export default function App() {
 
   // Pre-parse pulse_pattern JSON and compute SVG coordinates once per namings change
   const namingNodes = useMemo(() =>
-    namings.map(n => {
+    (Array.isArray(namings) ? namings : []).map(n => {
       let pattern: PulsePattern = { signal_a: 0.5, signal_b: 0.5, signal_c: 0.5, signal_d: 0.5 };
       try { pattern = JSON.parse(n.pulse_pattern) as PulsePattern; } catch {}
       return { ...n, _pattern: pattern };

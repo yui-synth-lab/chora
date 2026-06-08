@@ -64,6 +64,12 @@ async function main() {
   let lastTranslationTime = 0;
   const cooldownMs = 10000; // 10 second cooldown between translations
 
+  // Timestamp-based decay: run every 30 minutes, restoring last time from DB
+  const decayIntervalMs = 30 * 60 * 1000; // 30 minutes
+  const decayFactor = 0.05;               // -0.05 confidence per 30-min interval → ~7 hours to forget
+  const forgottenThreshold = 0.1;
+  let lastDecayTime: number = db.getSystemState()?.last_decayed_at ?? Date.now();
+
   const tick = async () => {
     try {
       const timestamp = Date.now();
@@ -155,9 +161,10 @@ async function main() {
                 try {
                   // Layer 3 memory: Find similar sensory memories using Euclidean distance
                   const similarNamings = memory.findSimilar(pulse, 5);
-                  const pastNamings = similarNamings.map(n => ({
+                  const pastNamings = similarNamings.map(({ naming: n, distance }) => ({
                     name: n.name,
-                    occurrences: n.reference_count ?? 1
+                    occurrences: n.reference_count ?? 1,
+                    distance
                   }));
 
                   // Compute deltas: actual - predicted
@@ -192,15 +199,29 @@ async function main() {
 
                   if (namingResult.use_existing_name) {
                     chosenName = namingResult.use_existing_name;
-                    const existing = similarNamings.find(n => n.name === chosenName);
-                    chosenDescription = existing?.description || namingResult.description;
-                    
-                    // Reinforce count and confidence
-                    memory.reinforceNaming(chosenName, 0.1);
-                    
-                    // Retrieve reinforced record to capture updated naming ID
                     const reinforced = db.getAllActiveNamings().find(n => n.name === chosenName);
-                    namingId = reinforced?.id || null;
+                    if (reinforced) {
+                      // Name exists in DB — reinforce it
+                      const existing = similarNamings.find(({ naming: n }) => n.name === chosenName);
+                      chosenDescription = existing?.naming.description || reinforced.description || namingResult.description;
+                      memory.reinforceNaming(chosenName, 0.1);
+                      namingId = reinforced.id ?? null;
+                    } else {
+                      // LLM hallucinated a name not in DB — treat as new
+                      console.log(`           | 🧠 [LLM] use_existing_name "${chosenName}" not found in DB, inserting as new`);
+                      chosenDescription = namingResult.description;
+                      namingId = db.insertNaming({
+                        name: chosenName,
+                        description: chosenDescription,
+                        pulse_pattern: JSON.stringify(pulse),
+                        prediction_error: JSON.stringify(deltas),
+                        llm_provider: llm.name,
+                        confidence: namingResult.confidence,
+                        created_at: Date.now(),
+                        reference_count: 1,
+                        forgotten: 0
+                      });
+                    }
                   } else if (namingResult.new_name) {
                     chosenName = namingResult.new_name;
                     chosenDescription = namingResult.description;
@@ -274,19 +295,19 @@ async function main() {
         prediction: predictionData
       });
 
-      // 4. Memory Decay Loop (runs every 50 cycles to trigger forgetting)
-      if (nextCycleCount % 50 === 0) {
-        const decayResult = memory.decayStep(0.02, 0.1);
-        if (decayResult.decayedCount > 0) {
-          console.log(
-            `           | 🧠 [Memory Manager] Decayed ${decayResult.decayedCount} active labels. ` +
-            `Forgotten (confidence < 0.1): ${decayResult.forgottenCount}.`
-          );
-          streamEvent('decay', {
-            decayed_count: decayResult.decayedCount,
-            forgotten_count: decayResult.forgottenCount
-          });
-        }
+      // 4. Memory Decay Loop (wall-clock based: every 30 minutes)
+      if (timestamp - lastDecayTime >= decayIntervalMs) {
+        lastDecayTime = timestamp;
+        db.updateSystemState(nextCycleCount, genState.step, genState.signalBState, genState.signalDState, lastDecayTime);
+        const decayResult = memory.decayStep(decayFactor, forgottenThreshold);
+        console.log(
+          `           | 🧠 [Memory Manager] Decay tick: ${decayResult.decayedCount} active, ` +
+          `${decayResult.forgottenCount} forgotten (confidence < ${forgottenThreshold}).`
+        );
+        streamEvent('decay', {
+          decayed_count: decayResult.decayedCount,
+          forgotten_count: decayResult.forgottenCount
+        });
       }
     } catch (err) {
       console.error('Error during cycle tick:', err);

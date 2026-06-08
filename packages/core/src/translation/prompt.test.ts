@@ -16,8 +16,8 @@ describe('SensoryPromptBuilder', () => {
         signal_d: 0.01
       },
       pastNamings: [
-        { name: 'ざわめき', occurrences: 5 },
-        { name: '静寂', occurrences: 2 }
+        { name: 'ざわめき', occurrences: 5, distance: 0.12 },
+        { name: '静寂', occurrences: 2, distance: 0.22 }
       ]
     };
 
@@ -26,18 +26,33 @@ describe('SensoryPromptBuilder', () => {
     // Verify sections are present
     expect(promptText).toContain('[CONTEXT]');
     expect(promptText).toContain('[CURRENT STATE]');
-    expect(promptText).toContain('[PAST NAMINGS]');
-    expect(promptText).toContain('[QUESTION]');
+    expect(promptText).toContain('[MEMORY]');
+    expect(promptText).toContain('[INSTRUCTION]');
     expect(promptText).toContain('[JSON RESPONSE FORMAT]');
 
-    // Verify history and deltas are formatted correctly
-    expect(promptText).toContain('signal_a: 0.50');
-    expect(promptText).toContain('signal_b: 0.42');
-    expect(promptText).toContain('signal_c: +0.35 (急上昇)');
-    expect(promptText).toContain('signal_b: -0.15 (下降)');
+    // Verify signal labels appear in history
+    expect(promptText).toContain('安定=0.50');
+    expect(promptText).toContain('報酬=0.42');
 
-    // Verify past namings are formatted
-    expect(promptText).toContain('"ざわめき" (過去の出現回数: 5)');
-    expect(promptText).toContain('"静寂" (過去の出現回数: 2)');
+    // Verify deltas are formatted
+    expect(promptText).toContain('+0.35 (急上昇)');
+    expect(promptText).toContain('-0.15 (下降)');
+
+    // Verify past namings include distance
+    expect(promptText).toContain('"ざわめき"');
+    expect(promptText).toContain('非常に近い');
+    expect(promptText).toContain('"静寂"');
+    expect(promptText).toContain('やや近い');
+  });
+
+  it('should show empty memory message when no past namings', () => {
+    const promptData: TranslationPrompt = {
+      history: [{ signal_a: 0.5, signal_b: 0.5, signal_c: 0.5, signal_d: 0.5 }],
+      deltas: { signal_a: 0.1, signal_b: 0.1, signal_c: 0.1, signal_d: 0.1 },
+      pastNamings: []
+    };
+
+    const promptText = SensoryPromptBuilder.build(promptData);
+    expect(promptText).toContain('記憶にない感覚パターンです');
   });
 });

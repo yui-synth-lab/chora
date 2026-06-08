@@ -53,7 +53,7 @@ describe('MemoryManager Unit Test', () => {
     db.insertNaming({
       name: 'LabelB',
       description: 'Far from middle',
-      pulse_pattern: JSON.stringify({ signal_a: 0.7, signal_b: 0.7, signal_c: 0.7, signal_d: 0.7 }),
+      pulse_pattern: JSON.stringify({ signal_a: 0.65, signal_b: 0.65, signal_c: 0.65, signal_d: 0.65 }),
       prediction_error: JSON.stringify({ signal_a: 0, signal_b: 0, signal_c: 0, signal_d: 0 }),
       llm_provider: 'test',
       confidence: 0.8,
@@ -81,8 +81,8 @@ describe('MemoryManager Unit Test', () => {
     // Should only contain active namings (LabelA and LabelB, not LabelC)
     expect(similar.length).toBe(2);
     // LabelA pattern is closer to currentPulse than LabelB
-    expect(similar[0].name).toBe('LabelA');
-    expect(similar[1].name).toBe('LabelB');
+    expect(similar[0].naming.name).toBe('LabelA');
+    expect(similar[1].naming.name).toBe('LabelB');
   });
 
   it('should reinforce an existing naming by boosting confidence and reference count', () => {

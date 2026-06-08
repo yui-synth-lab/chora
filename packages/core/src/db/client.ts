@@ -21,6 +21,7 @@ export interface SystemStateRecord {
   total_namings: number;
   unique_names: number;
   last_translation_at: number | null;
+  last_decayed_at: number | null;
   generator_step?: number;
   generator_signal_b_state?: number;
   generator_signal_d_state?: number;
@@ -73,6 +74,10 @@ export class ChoraDatabase {
     }
 
     this.db = new DatabaseSync(dbPath);
+    // WAL mode: allows concurrent readers while CLI writes every second
+    this.db.exec('PRAGMA journal_mode=WAL');
+    // Retry for up to 5 seconds before throwing SQLITE_BUSY
+    this.db.exec('PRAGMA busy_timeout=5000');
     this.initializeSchema();
   }
 
@@ -96,13 +101,16 @@ export class ChoraDatabase {
       try {
         this.db.exec('ALTER TABLE system_state ADD COLUMN generator_signal_d_state REAL DEFAULT 0.3');
       } catch (e) {}
+      try {
+        this.db.exec('ALTER TABLE system_state ADD COLUMN last_decayed_at INTEGER DEFAULT NULL');
+      } catch (e) {}
 
       // Execute the INSERT OR IGNORE for system_state now that all columns exist
       this.db.exec(`
         INSERT OR IGNORE INTO system_state (
-          id, cycle_count, total_namings, unique_names, last_translation_at,
+          id, cycle_count, total_namings, unique_names, last_translation_at, last_decayed_at,
           generator_step, generator_signal_b_state, generator_signal_d_state
-        ) VALUES (1, 0, 0, 0, NULL, 0, 0.5, 0.3)
+        ) VALUES (1, 0, 0, 0, NULL, NULL, 0, 0.5, 0.3)
       `);
 
       this.db.exec('COMMIT');
@@ -168,6 +176,9 @@ export class ChoraDatabase {
       naming.reference_count ?? 1,
       naming.forgotten ?? 0
     );
+    this.db.prepare(`
+      UPDATE system_state SET unique_names = unique_names + 1, total_namings = total_namings + 1 WHERE id = 1
+    `).run();
     return Number(result.lastInsertRowid);
   }
 
@@ -273,7 +284,7 @@ export class ChoraDatabase {
 
   getSystemState(): SystemStateRecord {
     const stmt = this.db.prepare(`
-      SELECT cycle_count, total_namings, unique_names, last_translation_at,
+      SELECT cycle_count, total_namings, unique_names, last_translation_at, last_decayed_at,
              generator_step, generator_signal_b_state, generator_signal_d_state
       FROM system_state
       WHERE id = 1
@@ -281,30 +292,28 @@ export class ChoraDatabase {
     return stmt.get() as unknown as SystemStateRecord;
   }
 
-  incrementCycleCount(): void {
-    const stmt = this.db.prepare(`
-      UPDATE system_state
-      SET cycle_count = cycle_count + 1
-      WHERE id = 1
-    `);
-    stmt.run();
-  }
-
   updateSystemState(
     cycleCount: number,
     generatorStep: number,
     generatorSignalBState: number,
-    generatorSignalDState: number
+    generatorSignalDState: number,
+    lastDecayedAt?: number
   ): void {
-    const stmt = this.db.prepare(`
-      UPDATE system_state
-      SET cycle_count = ?,
-          generator_step = ?,
-          generator_signal_b_state = ?,
-          generator_signal_d_state = ?
-      WHERE id = 1
-    `);
-    stmt.run(cycleCount, generatorStep, generatorSignalBState, generatorSignalDState);
+    if (lastDecayedAt !== undefined) {
+      this.db.prepare(`
+        UPDATE system_state
+        SET cycle_count = ?, generator_step = ?, generator_signal_b_state = ?,
+            generator_signal_d_state = ?, last_decayed_at = ?
+        WHERE id = 1
+      `).run(cycleCount, generatorStep, generatorSignalBState, generatorSignalDState, lastDecayedAt);
+    } else {
+      this.db.prepare(`
+        UPDATE system_state
+        SET cycle_count = ?, generator_step = ?, generator_signal_b_state = ?,
+            generator_signal_d_state = ?
+        WHERE id = 1
+      `).run(cycleCount, generatorStep, generatorSignalBState, generatorSignalDState);
+    }
   }
 
   close(): void {

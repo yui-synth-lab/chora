@@ -5,10 +5,15 @@
   "description": "Pre-Linguistic Field for Emergent Consciousness",
   "scripts": {
     "build": "pnpm -r build",
+    "build:dev": "pnpm --filter @chora/core --filter @chora/server --filter @chora/cli -r build",
+    "dev": "pnpm run build:dev && concurrently --kill-others --names \"server,cli,web\" -c \"cyan,green,yellow\" \"pnpm --filter @chora/server start\" \"pnpm --filter @chora/cli start\" \"pnpm --filter @chora/web dev\"",
+    "db:reset": "node scripts/db-reset.mjs",
+    "db:reset:force": "node scripts/db-reset.mjs --force",
     "test": "pnpm -r test",
     "format": "prettier --write \"packages/**/src/**/*.ts\""
   },
   "devDependencies": {
+    "concurrently": "^10.0.3",
     "prettier": "^3.0.0",
     "typescript": "^5.2.2"
   }
