@@ -209,3 +209,7 @@ Phase 1 ──→ Phase 2 ──→ Phase 3 ──→ Phase 4
 - `packages/cli/data/chora.db` — パス解決失敗の痕跡である迷子ファイル。原因確認のうえ削除・`.gitignore` 整備。
 - `prompt.test.ts` の失敗(Phase 1 に含むが、CI を導入するなら最優先)。
 - `OllamaProvider` の既定モデル文字列が CLI 側の既定([cli/src/index.ts:60](packages/cli/src/index.ts#L60))と二重定義 — 設定一元化(Phase 4)までの間も片方を参照に統一するのが安全。
+
+---
+
+**Phase 5 完了 (2026-06-15):** `scripts/generate-training-data.mjs` を新設し、`packages/training/train.py` から `PulseGeneratorPython` クラス(信号生成数式の Python 複製)を完全削除。`generator.ts` を学習データ生成の唯一の情報源とした。再学習後の平均 RMSE: 0.036 (旧: 0.150)、翻訳トリガ率: 1.1% (旧: 48.3%)。
