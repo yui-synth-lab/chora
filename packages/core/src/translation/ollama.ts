@@ -1,5 +1,4 @@
-import { LLMProvider, TranslationPrompt, NamingResponse } from "./provider.js";
-import { SensoryPromptBuilder } from "./prompt.js";
+import type { LLMProvider, NamingResponse } from "./provider.js";
 
 export class OllamaProvider implements LLMProvider {
   name = "ollama";
@@ -14,17 +13,10 @@ export class OllamaProvider implements LLMProvider {
     this.endpoint = endpoint;
   }
 
-  async generateNaming(
-    prompt: TranslationPrompt | string,
-  ): Promise<NamingResponse> {
-    // If a pre-built string is passed (from index.ts after SensoryPromptBuilder.build()),
-    // use it directly. Language selection happens at the call site, not here.
-    const promptText =
-      typeof prompt === "string" ? prompt : SensoryPromptBuilder.build(prompt);
-
+  async generateNaming(prompt: string): Promise<NamingResponse> {
     const requestBody = {
       model: this.model,
-      prompt: promptText,
+      prompt,
       stream: false,
       options: {
         temperature: 0.7,

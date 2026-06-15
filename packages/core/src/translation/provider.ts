@@ -25,7 +25,9 @@ export interface NamingResponse {
   confidence: number;
 }
 
+/** LLMProvider port. Accepts a pre-built prompt string; prompt construction
+ *  is the responsibility of TranslationService. */
 export interface LLMProvider {
   name: string;
-  generateNaming(prompt: TranslationPrompt | string): Promise<NamingResponse>;
+  generateNaming(prompt: string): Promise<NamingResponse>;
 }

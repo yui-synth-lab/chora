@@ -26,3 +26,16 @@ export type {
   DecayEvent,
   InitStatsEvent,
 } from "./domain/events.js";
+
+// Phase 3 exports
+export { NamingService } from "./memory/naming-service.js";
+export type { ResolvedNaming, NamingInsertPayload } from "./memory/naming-service.js";
+export { TranslationService } from "./translation/translation-service.js";
+export type { TranslationInput, TranslationResult } from "./translation/translation-service.js";
+export { ChoraEngine } from "./engine/chora-engine.js";
+export type { TickResult, TickPhase, ChoraEngineConfig } from "./engine/chora-engine.js";
+export type { EventSink } from "./engine/event-sink.js";
+export { NoopEventSink } from "./engine/event-sink.js";
+export type { Clock } from "./engine/clock.js";
+export { SystemClock } from "./engine/clock.js";
+export { HttpEventSink } from "./infra/telemetry/http-event-sink.js";
