@@ -64,7 +64,15 @@ async function main() {
 
   const db = new ChoraDatabase(dbPath);
   const generator = new PulseGenerator();
-  const model = new PredictiveModel(modelPath);
+
+  // CHORA_SURPRISE_THRESHOLD: dial CHORA's verbosity at runtime.
+  // After retraining (Phase 5), the new model's mean RMSE is ~0.036 with
+  // genuine spikes reaching ~0.18–0.23. 0.15 (default) names only the rare
+  // genuine surprises; 0.08 names also moderate excursions; 0.06 starts
+  // catching noise. Tune to taste.
+  const surpriseThreshold = Number(process.env.CHORA_SURPRISE_THRESHOLD ?? 0.15);
+  const model = new PredictiveModel(modelPath, surpriseThreshold);
+  console.log(`Surprise threshold: ${surpriseThreshold}`);
 
   // Restore generator state from DB and capture last_decayed_at for engine
   const savedState = db.getSystemState();

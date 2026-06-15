@@ -126,11 +126,16 @@ export class ChoraEngine {
         genState.signalDState,
       );
 
+      // ── Invariant 6: get PRIOR history (the 32 pulses BEFORE the current one) ──
+      // CRITICAL: read history BEFORE inserting `pulse`. The model is a
+      // next-step predictor — it must see the *previous* window and predict
+      // the current pulse. If history is read after insert, the window
+      // contains the answer (its last element IS `pulse`), so the prediction
+      // is trivially correct and surprise collapses to ~0.
+      const history = this.db.getRecentPulses(this.config.historyWindow);
+
       // ── Invariant 5: insert pulse → pulseId ───────────────────────────────
       const pulseId = this.db.insertPulse(pulse);
-
-      // ── Invariant 6: get recent pulse history ─────────────────────────────
-      const history = this.db.getRecentPulses(this.config.historyWindow);
 
       let prediction: PredictionResult | null = null;
       let phase: TickPhase;
