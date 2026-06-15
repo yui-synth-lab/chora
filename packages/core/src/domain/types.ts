@@ -81,3 +81,23 @@ export interface PredictionResult {
   surprise: number;
   triggered_translation: boolean;
 }
+
+// ── History join ─────────────────────────────────────────────────────────────
+
+/** One row from the pulses LEFT JOIN predictions query used by getRecentHistory. */
+export interface PulseHistoryRecord {
+  id: number;
+  timestamp: number;
+  signal_a: number;
+  signal_b: number;
+  signal_c: number;
+  signal_d: number;
+  // Nullable — absent when no prediction was recorded for this pulse yet
+  predicted_a: number | null;
+  predicted_b: number | null;
+  predicted_c: number | null;
+  predicted_d: number | null;
+  error_magnitude: number | null;
+  surprise: number | null;
+  triggered_translation: boolean;
+}
