@@ -50,7 +50,7 @@ Layer 3 — Memory Management    packages/core/src/memory/manager.ts
 2. Feeds the last 32 pulses into a GRU ONNX model to predict the next pulse
 3. Computes RMSE as a **surprise** score; if surprise > 0.15, triggers the Translation Loop
 4. Calls `OllamaProvider` (local LLM) to generate or reuse a Japanese-language "naming" for the sensory state
-5. Runs memory decay every 50 cycles, forgetting namings whose confidence drops below 0.1
+5. Runs memory decay on a 30-minute wall-clock interval (decayFactor 0.05), forgetting namings whose confidence drops below 0.1
 
 **The four signals** model emotional/neurological analogs:
 - `signal_a`: Baseline stability (slow circadian wave)
@@ -62,7 +62,7 @@ Layer 3 — Memory Management    packages/core/src/memory/manager.ts
 
 **ONNX model** (`packages/training/train.py`) is a GRU (hidden=16, 1 layer) trained on 50k synthetic pulses with a sliding window of 32. Must be trained and placed at `models/predictive_model.onnx` before running. The CLI gracefully degrades to Layer 0-only if the model file is missing.
 
-**LLM integration** uses `OllamaProvider` talking to `http://localhost:11434/api/generate`. Model defaults to `llama3`; override via `OLLAMA_MODEL` env var. Prompts are in Japanese (`SensoryPromptBuilder`). The LLM returns JSON with `use_existing_name | new_name`, `description`, and `confidence`.
+**LLM integration** uses `OllamaProvider` talking to `http://localhost:11434/api/generate`. Model defaults to `hf.co/unsloth/Qwen3-4B-Instruct-2507-GGUF:Q4_K_M`; override via `OLLAMA_MODEL` env var. Prompt language defaults to `en`; override via `PROMPT_LANG=ja`. The LLM returns JSON with `use_existing_name | new_name`, `description`, and `confidence`.
 
 **`LLMProvider` interface** (`packages/core/src/translation/provider.ts`) is the extension point for adding non-Ollama providers.
 

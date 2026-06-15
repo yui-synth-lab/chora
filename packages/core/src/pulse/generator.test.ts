@@ -1,11 +1,11 @@
-import { describe, it, expect } from 'vitest';
-import { PulseGenerator } from './generator.js';
+import { describe, it, expect } from "vitest";
+import { PulseGenerator } from "./generator.js";
 
-describe('PulseGenerator', () => {
-  it('should generate valid pulses with 4D signals bounded between 0 and 1', () => {
+describe("PulseGenerator", () => {
+  it("should generate valid pulses with 4D signals bounded between 0 and 1", () => {
     const generator = new PulseGenerator();
     const timestamp = Date.now();
-    
+
     const pulse = generator.generate(timestamp);
 
     expect(pulse.timestamp).toBe(timestamp);
@@ -22,7 +22,7 @@ describe('PulseGenerator', () => {
     expect(pulse.signal_d).toBeLessThanOrEqual(1);
   });
 
-  it('should vary signals over consecutive generations', () => {
+  it("should vary signals over consecutive generations", () => {
     const generator = new PulseGenerator();
     const startTimestamp = Date.now();
 
@@ -30,7 +30,7 @@ describe('PulseGenerator', () => {
     const pulse2 = generator.generate(startTimestamp + 1000);
 
     // Signals should change due to math, cycles, or noise
-    const isDifferent = 
+    const isDifferent =
       pulse1.signal_a !== pulse2.signal_a ||
       pulse1.signal_b !== pulse2.signal_b ||
       pulse1.signal_c !== pulse2.signal_c ||

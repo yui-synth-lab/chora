@@ -1,10 +1,6 @@
-export interface Pulse {
-  timestamp: number;
-  signal_a: number;
-  signal_b: number;
-  signal_c: number;
-  signal_d: number;
-}
+import type { Pulse } from "../domain/types.js";
+
+export type { Pulse };
 
 export class PulseGenerator {
   private step: number = 0;
@@ -17,7 +13,7 @@ export class PulseGenerator {
     return {
       step: this.step,
       signalBState: this.signalBState,
-      signalDState: this.signalDState
+      signalDState: this.signalDState,
     };
   }
 
@@ -26,7 +22,6 @@ export class PulseGenerator {
     this.signalBState = signalBState;
     this.signalDState = signalDState;
   }
-
 
   /**
    * Generates the next pulse based on step/time.
@@ -42,7 +37,8 @@ export class PulseGenerator {
 
     // --- Signal A (Baseline stability) ---
     // Smooth slow wave, minimal noise
-    const baseA = 0.5 + 0.2 * Math.sin(circadianRad) + 0.1 * Math.cos(ultradianRad);
+    const baseA =
+      0.5 + 0.2 * Math.sin(circadianRad) + 0.1 * Math.cos(ultradianRad);
     const noiseA = this.nextGaussian(0, 0.02);
     let signal_a = baseA + noiseA;
 
@@ -55,26 +51,43 @@ export class PulseGenerator {
     if (Math.random() < 0.01) {
       walkB += 0.4;
     }
-    this.signalBState = this.signalBState + reversionSpeed * (meanB - this.signalBState) + walkB;
+    this.signalBState =
+      this.signalBState + reversionSpeed * (meanB - this.signalBState) + walkB;
     let signal_b = this.signalBState;
 
     // --- Signal C (Stress / Arousal) ---
     // Peaks early in circadian cycle. Partial negative correlation with Signal A.
-    const circadianC = 0.4 + 0.25 * Math.sin(circadianRad + Math.PI / 3);
-    const noiseC = this.nextGaussian(0, 0.04);
-    const bInfluence = Math.max(0, signal_b - 0.6) * 0.2;
-    let signal_c = circadianC - 0.2 * (signal_a - 0.5) + bInfluence + noiseC;
+    // Ultradian (90-min) component added so stress oscillates visibly within short runs.
+    // bInfluence is bidirectional: high B raises arousal, low B lowers it.
+    const circadianC = 0.2 * Math.sin(circadianRad + Math.PI / 3); // ±0.2 over 24h
+    const ultradianC = 0.2 * Math.sin(ultradianRad); // ±0.2 over 90min
+    const noiseC = this.nextGaussian(0, 0.05);
+    const bInfluence = (signal_b - 0.5) * 0.2; // bidirectional
+    let signal_c =
+      0.5 +
+      circadianC +
+      ultradianC -
+      0.3 * (signal_a - 0.5) +
+      bInfluence +
+      noiseC;
 
     // --- Signal D (Social/Connection baseline) ---
     // Slow drifting state with positive plateaus. Decays under high stress (Signal C).
-    const meanD = 0.3;
+    // Fix: raise meanD (0.3→0.4), make stressDrag bidirectional around 0.5
+    const meanD = 0.4;
     let walkD = this.nextGaussian(0, 0.02);
     // 0.5% chance of connection event (increase state significantly)
     if (Math.random() < 0.005) {
       walkD += 0.35;
     }
-    const stressDrag = signal_c > 0.6 ? -0.05 * (signal_c - 0.6) : 0;
-    this.signalDState = this.signalDState + 0.02 * (meanD - this.signalDState) + walkD + stressDrag;
+    // High stress (>0.6) drags D down; low stress (<0.6) allows D to recover
+    // Coefficient halved (0.06→0.03) so mean reversion can compete even at peak stress
+    const stressDrag = (signal_c - 0.6) * -0.03;
+    this.signalDState =
+      this.signalDState +
+      0.02 * (meanD - this.signalDState) +
+      walkD +
+      stressDrag;
     let signal_d = this.signalDState;
 
     // Clamp all signals strictly to [0, 1]
@@ -88,7 +101,7 @@ export class PulseGenerator {
       signal_a,
       signal_b,
       signal_c,
-      signal_d
+      signal_d,
     };
   }
 

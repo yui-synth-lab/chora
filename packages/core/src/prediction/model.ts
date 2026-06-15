@@ -1,15 +1,7 @@
-import * as ort from 'onnxruntime-node';
-import { PulseRecord } from '../db/client.js';
+import * as ort from "onnxruntime-node";
+import type { PulseRecord, PredictionResult } from "../domain/types.js";
 
-export interface PredictionResult {
-  predicted_a: number;
-  predicted_b: number;
-  predicted_c: number;
-  predicted_d: number;
-  error_magnitude: number;
-  surprise: number;
-  triggered_translation: boolean;
-}
+export type { PredictionResult };
 
 export class PredictiveModel {
   private session: ort.InferenceSession | null = null;
@@ -32,13 +24,18 @@ export class PredictiveModel {
    * @param history Last 32 PulseRecord entries (oldest first).
    * @param actual The actual generated pulse at the current step (to compute prediction error).
    */
-  async predict(history: PulseRecord[], actual: PulseRecord): Promise<PredictionResult> {
+  async predict(
+    history: PulseRecord[],
+    actual: PulseRecord,
+  ): Promise<PredictionResult> {
     if (!this.session) {
       await this.init();
     }
 
     if (history.length < 32) {
-      throw new Error(`Insufficient history length: expected 32, got ${history.length}`);
+      throw new Error(
+        `Insufficient history length: expected 32, got ${history.length}`,
+      );
     }
 
     // Ensure we only use the last 32 steps in case history is larger
@@ -54,10 +51,10 @@ export class PredictiveModel {
     }
 
     // Run inference
-    const tensor = new ort.Tensor('float32', data, [1, 32, 4]);
+    const tensor = new ort.Tensor("float32", data, [1, 32, 4]);
     const feeds = { input: tensor };
     const results = await this.session!.run(feeds);
-    
+
     const outputTensor = results.output;
     const outputData = outputTensor.data as Float32Array;
 
@@ -85,7 +82,7 @@ export class PredictiveModel {
       predicted_d: predD,
       error_magnitude: rmse,
       surprise,
-      triggered_translation
+      triggered_translation,
     };
   }
 }

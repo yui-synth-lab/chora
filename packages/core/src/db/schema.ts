@@ -56,5 +56,5 @@ export const SCHEMA_QUERIES = [
     generator_step INTEGER DEFAULT 0,
     generator_signal_b_state REAL DEFAULT 0.5,
     generator_signal_d_state REAL DEFAULT 0.3
-  );`
+  );`,
 ];
