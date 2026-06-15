@@ -23,10 +23,14 @@ export function useChoraSocket(handlers: SocketHandlers): void {
   const handlersRef = useRef(handlers);
   handlersRef.current = handlers;
 
-  const isIntentionalClose = useRef(false);
-
   useEffect(() => {
-    isIntentionalClose.current = false;
+    // Per-effect flag (NOT a shared ref): under React StrictMode the effect
+    // mounts, cleans up, then mounts again. A shared ref reset to false at the
+    // start of each run made the first socket's async onclose look
+    // "unintentional", scheduling a window.location.reload() — an endless
+    // reload loop independent of server state. A closure-local flag is correct
+    // for both StrictMode remounts and genuine server disconnects.
+    let closedByCleanup = false;
 
     const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const wsUrl = `${wsProtocol}//${window.location.hostname}:${WS_PORT}`;
@@ -40,7 +44,7 @@ export function useChoraSocket(handlers: SocketHandlers): void {
 
     ws.onclose = () => {
       handlersRef.current.onConnectionChange(false);
-      if (!isIntentionalClose.current) {
+      if (!closedByCleanup) {
         console.log('[CHORA WebSocket] Disconnected. Retrying in 5s...');
         setTimeout(() => window.location.reload(), 5000);
       }
@@ -75,7 +79,7 @@ export function useChoraSocket(handlers: SocketHandlers): void {
     };
 
     return () => {
-      isIntentionalClose.current = true;
+      closedByCleanup = true;
       ws.close();
     };
   }, []);
