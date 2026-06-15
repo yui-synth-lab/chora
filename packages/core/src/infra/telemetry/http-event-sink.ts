@@ -9,8 +9,11 @@ import type { TickEvent, NamingEvent, DecayEvent } from "../../domain/events.js"
 export class HttpEventSink implements EventSink {
   private readonly endpoint: string;
 
-  constructor(endpoint = "http://localhost:3001/api/events") {
-    this.endpoint = endpoint;
+  constructor(endpoint?: string) {
+    this.endpoint =
+      endpoint ??
+      process.env["CHORA_EVENTS_URL"] ??
+      "http://localhost:3001/api/events";
   }
 
   private post(type: string, data: unknown): void {

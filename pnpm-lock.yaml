@@ -80,6 +80,9 @@ importers:
 
   packages/web:
     dependencies:
+      '@chora/core':
+        specifier: workspace:*
+        version: link:../core
       lucide-react:
         specifier: ^0.368.0
         version: 0.368.0(react@18.3.1)

@@ -26,6 +26,11 @@ import { TranslationEventRepository } from "../infra/sqlite/translation-event-re
 import { SystemStateRepository } from "../infra/sqlite/system-state-repository.js";
 import type { DatabaseSync as DatabaseSyncType } from "node:sqlite";
 
+export interface ChoraDBOptions {
+  /** When true, open the database in read-only mode and skip running migrations. */
+  readOnly?: boolean;
+}
+
 /**
  * ChoraDatabase — thin facade over the focused repository layer.
  *
@@ -40,9 +45,12 @@ export class ChoraDatabase {
   private translationEventRepo: TranslationEventRepository;
   private systemStateRepo: SystemStateRepository;
 
-  constructor(dbPath: string) {
-    this.db = openConnection(dbPath);
-    runMigrations(this.db);
+  constructor(dbPath: string, options: ChoraDBOptions = {}) {
+    const readOnly = options.readOnly ?? false;
+    this.db = openConnection(dbPath, { readOnly });
+    if (!readOnly) {
+      runMigrations(this.db);
+    }
 
     this.pulseRepo = new PulseRepository(this.db);
     this.predictionRepo = new PredictionRepository(this.db);
