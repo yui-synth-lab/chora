@@ -1,4 +1,4 @@
-import type { TickEvent, NamingEvent, DecayEvent } from "../domain/events.js";
+import type { TickEvent, NamingEvent, DecayEvent, ActivationEvent, KLineEvent, AgencyEvent } from "../domain/events.js";
 
 /**
  * EventSink port — the engine emits typed events through this interface.
@@ -8,6 +8,9 @@ export interface EventSink {
   emitTick(event: TickEvent): void;
   emitNaming(event: NamingEvent): void;
   emitDecay(event: DecayEvent): void;
+  emitActivation(event: ActivationEvent): void;
+  emitKLine(event: KLineEvent): void;
+  emitAgency(event: AgencyEvent): void;
 }
 
 /** No-op implementation for tests and environments without a server. */
@@ -15,4 +18,7 @@ export class NoopEventSink implements EventSink {
   emitTick(_event: TickEvent): void {}
   emitNaming(_event: NamingEvent): void {}
   emitDecay(_event: DecayEvent): void {}
+  emitActivation(_event: ActivationEvent): void {}
+  emitKLine(_event: KLineEvent): void {}
+  emitAgency(_event: AgencyEvent): void {}
 }

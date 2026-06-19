@@ -5,7 +5,16 @@ import type { NamingService } from "../memory/naming-service.js";
 import type { TranslationService } from "../translation/translation-service.js";
 import type { EventSink } from "./event-sink.js";
 import type { Clock } from "./clock.js";
-import type { PredictionResult } from "../domain/types.js";
+import type { PredictionResult, AgentActivation } from "../domain/types.js";
+import type { AgentActivationEngine } from "../mind/activation-engine.js";
+import type { KLineService } from "../mind/kline-service.js";
+import type { AgencyService } from "../mind/agency-service.js";
+
+export interface MindServices {
+  activationEngine: AgentActivationEngine;
+  klineService: KLineService;
+  agencyService: AgencyService;
+}
 
 // ── Result types returned from tick() for the CLI renderer ──────────────────
 
@@ -63,8 +72,12 @@ export class ChoraEngine {
   private isTranslating = false;
   private lastTranslationTime = 0;
   lastDecayTime: number;
+  private lastActivations: AgentActivation[] = [];
+  private surprisesSinceAgencyRecompute = 0;
+  private static readonly AGENCY_RECOMPUTE_INTERVAL = 10;
 
   private readonly config: Required<ChoraEngineConfig>;
+  private readonly mind: MindServices | null;
 
   constructor(
     private readonly db: ChoraDatabase,
@@ -76,6 +89,7 @@ export class ChoraEngine {
     private readonly clock: Clock,
     config: ChoraEngineConfig = {},
     initialLastDecayTime = 0,
+    mind?: MindServices,
   ) {
     this.config = {
       tickMs: config.tickMs ?? 1000,
@@ -88,6 +102,13 @@ export class ChoraEngine {
       llmProviderLabel: config.llmProviderLabel ?? "ollama",
     };
     this.lastDecayTime = initialLastDecayTime;
+    this.mind = mind ?? null;
+
+    if (this.mind) {
+      const activeNamings = this.db.getAllActiveNamings();
+      const allKLines = this.db.getAllActiveKLines();
+      this.mind.activationEngine.refreshCache(activeNamings, allKLines);
+    }
   }
 
   /** Close the underlying database connection. Call on shutdown. */
@@ -209,6 +230,25 @@ export class ChoraEngine {
           : null,
       });
 
+      // ── Invariant 7b: Society of Mind — agent activation ─────────────────
+      if (this.mind && this.mind.activationEngine.hasAgents()) {
+        const { activations, activeKLineIds } =
+          this.mind.activationEngine.computeActivation(pulse);
+        this.lastActivations = activations;
+        this.eventSink.emitActivation({
+          cycle_count: nextCycleCount,
+          timestamp,
+          activations: activations.map((a) => ({
+            agentId: a.agentId,
+            name: a.name,
+            directActivation: a.directActivation,
+            spreadActivation: a.spreadActivation,
+            totalActivation: a.totalActivation,
+          })),
+          activeKLineIds,
+        });
+      }
+
       // ── Invariant 11: wall-clock based decay ──────────────────────────────
       if (timestamp - this.lastDecayTime >= this.config.decayIntervalMs) {
         this.lastDecayTime = timestamp;
@@ -219,6 +259,11 @@ export class ChoraEngine {
           genState.signalDState,
           this.lastDecayTime,
         );
+
+        const activeBeforeDecay = this.mind
+          ? this.db.getAllActiveNamings().map((n) => n.id!)
+          : [];
+
         const decayResult = this.namingService.decayStep(
           this.config.decayFactor,
           this.config.forgottenThreshold,
@@ -231,6 +276,39 @@ export class ChoraEngine {
           decayed_count: decayResult.decayedCount,
           forgotten_count: decayResult.forgottenCount,
         });
+
+        if (this.mind) {
+          if (decayResult.forgottenCount > 0) {
+            const activeAfterDecay = new Set(
+              this.db.getAllActiveNamings().map((n) => n.id!),
+            );
+            const forgottenIds = activeBeforeDecay.filter(
+              (id) => !activeAfterDecay.has(id),
+            );
+            if (forgottenIds.length > 0) {
+              const removedKLines =
+                this.mind.klineService.removeKLinesForForgottenAgents(forgottenIds);
+              log(
+                `           | [Society of Mind] Removed ${removedKLines} K-line(s) for ${forgottenIds.length} forgotten agent(s)`,
+              );
+            }
+          }
+
+          const klineDecay = this.mind.klineService.decayKLines(
+            this.config.decayFactor,
+          );
+          log(
+            `           | [Society of Mind] K-line decay: ${klineDecay.decayedCount} decayed, ${klineDecay.removedCount} removed`,
+          );
+
+          const allKLines = this.db.getAllActiveKLines();
+          const activeNamings = this.db.getAllActiveNamings();
+          const agencyResult = this.mind.agencyService.recomputeAgencies(
+            allKLines, activeNamings, timestamp,
+          );
+          this.eventSink.emitAgency(agencyResult);
+          this.mind.activationEngine.refreshCache(activeNamings, allKLines);
+        }
       }
 
       return { cycleCount: nextCycleCount, timestamp, pulse, prediction, phase };
@@ -331,6 +409,43 @@ export class ChoraEngine {
         }
 
         this.lastTranslationTime = this.clock.now();
+
+        // ── Society of Mind: K-line formation + agency recompute ──────────
+        if (this.mind && this.lastActivations.length >= 2) {
+          const activeNamings = this.db.getAllActiveNamings();
+          const allKLines = this.db.getAllActiveKLines();
+          this.mind.activationEngine.refreshCache(activeNamings, allKLines);
+
+          const formed = this.mind.klineService.formKLines(
+            this.lastActivations,
+            this.clock.now(),
+          );
+          if (formed.length > 0) {
+            log(
+              `           | [Society of Mind] Formed/strengthened ${formed.length} K-line(s): ` +
+                formed.map((f) => `${f.agent_a_name}↔${f.agent_b_name}`).join(", "),
+            );
+            this.eventSink.emitKLine({ formed });
+
+            const refreshedKLines = this.db.getAllActiveKLines();
+            this.mind.activationEngine.refreshCache(activeNamings, refreshedKLines);
+          }
+
+          this.surprisesSinceAgencyRecompute++;
+          if (this.surprisesSinceAgencyRecompute >= ChoraEngine.AGENCY_RECOMPUTE_INTERVAL) {
+            this.surprisesSinceAgencyRecompute = 0;
+            const latestKLines = this.db.getAllActiveKLines();
+            const agencyResult = this.mind.agencyService.recomputeAgencies(
+              latestKLines, activeNamings, this.clock.now(),
+            );
+            if (agencyResult.agencies.length > 0) {
+              log(
+                `           | [Society of Mind] ${agencyResult.agencies.length} agency(ies) formed`,
+              );
+            }
+            this.eventSink.emitAgency(agencyResult);
+          }
+        }
       } catch (err) {
         log(
           `           | [LLM Translation Error] Failed to generate naming: ${(err as Error).message}`,

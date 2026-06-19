@@ -9,6 +9,9 @@ import {
   SystemClock,
   HttpEventSink,
   findWorkspaceRoot,
+  AgentActivationEngine,
+  KLineService,
+  AgencyService,
 } from "@chora/core";
 import * as path from "path";
 
@@ -106,6 +109,11 @@ async function main() {
     );
   }
 
+  // Society of Mind services
+  const activationEngine = new AgentActivationEngine();
+  const klineService = new KLineService(db);
+  const agencyService = new AgencyService(db);
+
   // Assemble engine with all injected dependencies
   const engine = new ChoraEngine(
     db,
@@ -117,6 +125,7 @@ async function main() {
     new SystemClock(),
     { llmProviderLabel: `ollama (${ollamaModelName})` },
     initialLastDecayTime,
+    { activationEngine, klineService, agencyService },
   );
 
   console.log("\n--- CHORA Loop (Layer 0 & 1 & 2 & 3) Started ---");

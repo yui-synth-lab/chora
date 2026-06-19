@@ -1,5 +1,5 @@
 import type { EventSink } from "../../engine/event-sink.js";
-import type { TickEvent, NamingEvent, DecayEvent } from "../../domain/events.js";
+import type { TickEvent, NamingEvent, DecayEvent, ActivationEvent, KLineEvent, AgencyEvent } from "../../domain/events.js";
 
 /**
  * HttpEventSink — POSTs typed events to a configurable HTTP endpoint.
@@ -36,5 +36,17 @@ export class HttpEventSink implements EventSink {
 
   emitDecay(event: DecayEvent): void {
     this.post("decay", event);
+  }
+
+  emitActivation(event: ActivationEvent): void {
+    this.post("activation", event);
+  }
+
+  emitKLine(event: KLineEvent): void {
+    this.post("kline", event);
+  }
+
+  emitAgency(event: AgencyEvent): void {
+    this.post("agency", event);
   }
 }

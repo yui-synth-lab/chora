@@ -1,9 +1,9 @@
 import { WebSocketServer, WebSocket } from "ws";
 import type { Server } from "node:http";
 import type { ChoraDatabase } from "@chora/core";
-import type { TickEvent, NamingEvent, DecayEvent, InitStatsEvent } from "@chora/core/events";
+import type { TickEvent, NamingEvent, DecayEvent, InitStatsEvent, ActivationEvent, KLineEvent, AgencyEvent } from "@chora/core/events";
 
-type BroadcastPayload = TickEvent | NamingEvent | DecayEvent | InitStatsEvent;
+type BroadcastPayload = TickEvent | NamingEvent | DecayEvent | InitStatsEvent | ActivationEvent | KLineEvent | AgencyEvent;
 
 export interface BroadcastHub {
   broadcast(type: string, data: BroadcastPayload): void;

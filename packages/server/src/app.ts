@@ -1,11 +1,11 @@
 import express from "express";
 import cors from "cors";
 import type { ChoraDatabase } from "@chora/core";
-import type { TickEvent, NamingEvent, DecayEvent } from "@chora/core/events";
+import type { TickEvent, NamingEvent, DecayEvent, ActivationEvent, KLineEvent, AgencyEvent } from "@chora/core/events";
 import type { BroadcastHub } from "./broadcast-hub.js";
 
-type KnownEventType = "tick" | "naming" | "decay";
-const KNOWN_TYPES = new Set<string>(["tick", "naming", "decay"]);
+type KnownEventType = "tick" | "naming" | "decay" | "activation" | "kline" | "agency";
+const KNOWN_TYPES = new Set<string>(["tick", "naming", "decay", "activation", "kline", "agency"]);
 
 /**
  * createApp — configures an Express application with all REST routes.
@@ -55,12 +55,32 @@ export function createApp(db: ChoraDatabase, hub: BroadcastHub): express.Applica
     }
   });
 
+  /** All active K-line connections */
+  app.get("/api/klines", (_req, res) => {
+    try {
+      const klines = db.getAllActiveKLines();
+      res.json(klines);
+    } catch (err) {
+      res.status(500).json({ error: (err as Error).message });
+    }
+  });
+
+  /** All current agencies */
+  app.get("/api/agencies", (_req, res) => {
+    try {
+      const agencies = db.getAllAgencies();
+      res.json(agencies);
+    } catch (err) {
+      res.status(500).json({ error: (err as Error).message });
+    }
+  });
+
   /**
    * Receive events from the CLI loop and broadcast to WS clients.
    * Typed payload is forwarded without transformation.
    */
   app.post("/api/events", (req, res) => {
-    const { type, data } = req.body as { type?: string; data?: TickEvent | NamingEvent | DecayEvent };
+    const { type, data } = req.body as { type?: string; data?: TickEvent | NamingEvent | DecayEvent | ActivationEvent | KLineEvent | AgencyEvent };
     if (!type || !data) {
       return res.status(400).json({ error: "Missing type or data" });
     }

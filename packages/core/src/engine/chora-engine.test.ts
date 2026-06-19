@@ -11,7 +11,7 @@ import { NoopEventSink, type EventSink } from "./event-sink.js";
 import type { Clock } from "./clock.js";
 import type { LLMProvider, NamingResponse } from "../translation/provider.js";
 import { findWorkspaceRoot } from "../utils/workspace.js";
-import type { NamingEvent, DecayEvent } from "../domain/events.js";
+import type { NamingEvent, DecayEvent, ActivationEvent, KLineEvent, AgencyEvent } from "../domain/events.js";
 
 // ── Fake implementations ─────────────────────────────────────────────────────
 
@@ -58,6 +58,9 @@ class SpyEventSink implements EventSink {
   emitDecay(e: DecayEvent): void {
     this.decayEvents.push(e);
   }
+  emitActivation(_e: ActivationEvent): void {}
+  emitKLine(_e: KLineEvent): void {}
+  emitAgency(_e: AgencyEvent): void {}
 }
 
 /**
