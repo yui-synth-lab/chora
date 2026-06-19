@@ -116,4 +116,18 @@ describe("runMigrations", () => {
     expect(colNames).toContain("generator_signal_d_state");
     expect(colNames).toContain("last_decayed_at");
   });
+
+  it("k_lines and agencies tables exist (from migration v4)", () => {
+    const { db } = open("som_tables");
+    runMigrations(db);
+
+    const tableNames = (
+      db
+        .prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
+        .all() as Array<{ name: string }>
+    ).map((r) => r.name);
+
+    expect(tableNames).toContain("k_lines");
+    expect(tableNames).toContain("agencies");
+  });
 });

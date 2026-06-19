@@ -6,6 +6,9 @@ import type {
   NamingRecord,
   TranslationEventRecord,
   PulseHistoryRecord,
+  KLineRecord,
+  AgencyRecord,
+  AgentActivation,
 } from "../domain/types.js";
 
 export type {
@@ -15,6 +18,9 @@ export type {
   NamingRecord,
   TranslationEventRecord,
   PulseHistoryRecord,
+  KLineRecord,
+  AgencyRecord,
+  AgentActivation,
 };
 
 import { openConnection } from "../infra/sqlite/connection.js";
@@ -24,6 +30,8 @@ import { PredictionRepository } from "../infra/sqlite/prediction-repository.js";
 import { NamingRepository } from "../infra/sqlite/naming-repository.js";
 import { TranslationEventRepository } from "../infra/sqlite/translation-event-repository.js";
 import { SystemStateRepository } from "../infra/sqlite/system-state-repository.js";
+import { KLineRepository } from "../infra/sqlite/kline-repository.js";
+import { AgencyRepository } from "../infra/sqlite/agency-repository.js";
 import type { DatabaseSync as DatabaseSyncType } from "node:sqlite";
 
 export interface ChoraDBOptions {
@@ -44,6 +52,8 @@ export class ChoraDatabase {
   private namingRepo: NamingRepository;
   private translationEventRepo: TranslationEventRepository;
   private systemStateRepo: SystemStateRepository;
+  private klineRepo: KLineRepository;
+  private agencyRepo: AgencyRepository;
 
   constructor(dbPath: string, options: ChoraDBOptions = {}) {
     const readOnly = options.readOnly ?? false;
@@ -57,6 +67,8 @@ export class ChoraDatabase {
     this.namingRepo = new NamingRepository(this.db);
     this.translationEventRepo = new TranslationEventRepository(this.db);
     this.systemStateRepo = new SystemStateRepository(this.db);
+    this.klineRepo = new KLineRepository(this.db);
+    this.agencyRepo = new AgencyRepository(this.db);
   }
 
   // ── Pulses ────────────────────────────────────────────────────────────────
@@ -142,6 +154,46 @@ export class ChoraDatabase {
       generatorSignalDState,
       lastDecayedAt,
     );
+  }
+
+  // ── K-Lines (Society of Mind) ──────────────────────────────────────────────
+
+  upsertKLine(agentAId: number, agentBId: number, timestamp: number): { id: number; isNew: boolean } {
+    return this.klineRepo.upsertKLine(agentAId, agentBId, timestamp);
+  }
+
+  getAllActiveKLines(): KLineRecord[] {
+    return this.klineRepo.getAllActiveKLines();
+  }
+
+  getKLinesForAgent(agentId: number): KLineRecord[] {
+    return this.klineRepo.getKLinesForAgent(agentId);
+  }
+
+  decayKLines(decayFactor: number): number {
+    return this.klineRepo.decayKLines(decayFactor);
+  }
+
+  removeWeakKLines(threshold: number): number {
+    return this.klineRepo.removeWeakKLines(threshold);
+  }
+
+  removeKLinesForAgent(agentId: number): number {
+    return this.klineRepo.removeKLinesForAgent(agentId);
+  }
+
+  // ── Agencies (Society of Mind) ─────────────────────────────────────────────
+
+  upsertAgency(agency: Omit<AgencyRecord, "id">): number {
+    return this.agencyRepo.upsertAgency(agency);
+  }
+
+  getAllAgencies(): AgencyRecord[] {
+    return this.agencyRepo.getAllAgencies();
+  }
+
+  deleteAllAgencies(): void {
+    this.agencyRepo.deleteAllAgencies();
   }
 
   // ── Connection ────────────────────────────────────────────────────────────

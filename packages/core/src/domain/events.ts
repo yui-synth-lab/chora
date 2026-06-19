@@ -48,3 +48,36 @@ export interface InitStatsEvent {
   active_namings: number;
   unique_names: number;
 }
+
+export interface ActivationEvent {
+  cycle_count: number;
+  timestamp: number;
+  activations: Array<{
+    agentId: number;
+    name: string;
+    directActivation: number;
+    spreadActivation: number;
+    totalActivation: number;
+  }>;
+  activeKLineIds: number[];
+}
+
+export interface KLineEvent {
+  formed: Array<{
+    agent_a_id: number;
+    agent_b_id: number;
+    agent_a_name: string;
+    agent_b_name: string;
+    strength: number;
+    isNew: boolean;
+  }>;
+}
+
+export interface AgencyEvent {
+  agencies: Array<{
+    id: number;
+    name: string | null;
+    memberNames: string[];
+    coherence: number;
+  }>;
+}

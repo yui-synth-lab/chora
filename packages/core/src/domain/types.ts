@@ -101,3 +101,32 @@ export interface PulseHistoryRecord {
   surprise: number | null;
   triggered_translation: boolean;
 }
+
+// ── Society of Mind (Minsky) ────────────────────────────────────────────────
+
+export interface AgentActivation {
+  agentId: number;
+  name: string;
+  directActivation: number;
+  spreadActivation: number;
+  totalActivation: number;
+}
+
+export interface KLineRecord {
+  id?: number;
+  agent_a_id: number;
+  agent_b_id: number;
+  strength: number;
+  formed_at: number;
+  last_co_activation: number;
+  co_activation_count: number;
+}
+
+export interface AgencyRecord {
+  id?: number;
+  name: string | null;
+  member_ids: string; // JSON array of naming IDs
+  coherence: number;
+  formed_at: number;
+  updated_at: number;
+}

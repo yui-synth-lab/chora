@@ -139,6 +139,38 @@ export const MIGRATIONS: Migration[] = [
       `);
     },
   },
+
+  {
+    version: 4,
+    description: "Society of Mind: k_lines and agencies tables",
+    up(db) {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS k_lines (
+          id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+          agent_a_id          INTEGER NOT NULL REFERENCES namings(id),
+          agent_b_id          INTEGER NOT NULL REFERENCES namings(id),
+          strength            REAL    NOT NULL DEFAULT 1.0,
+          formed_at           INTEGER NOT NULL,
+          last_co_activation  INTEGER NOT NULL,
+          co_activation_count INTEGER NOT NULL DEFAULT 1,
+          CHECK (agent_a_id < agent_b_id)
+        );
+
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_klines_pair ON k_lines(agent_a_id, agent_b_id);
+        CREATE INDEX IF NOT EXISTS idx_klines_a ON k_lines(agent_a_id);
+        CREATE INDEX IF NOT EXISTS idx_klines_b ON k_lines(agent_b_id);
+
+        CREATE TABLE IF NOT EXISTS agencies (
+          id          INTEGER PRIMARY KEY AUTOINCREMENT,
+          name        TEXT,
+          member_ids  TEXT    NOT NULL,
+          coherence   REAL    NOT NULL DEFAULT 0.0,
+          formed_at   INTEGER NOT NULL,
+          updated_at  INTEGER NOT NULL
+        );
+      `);
+    },
+  },
 ];
 
 /**

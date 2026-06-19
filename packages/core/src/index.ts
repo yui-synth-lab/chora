@@ -8,6 +8,7 @@ export type {
   PulseHistoryRecord,
   ChoraDBOptions,
 } from "./db/client.js";
+export type { KLineRecord, AgencyRecord, AgentActivation } from "./domain/types.js";
 export { PulseGenerator } from "./pulse/generator.js";
 export type { Pulse } from "./pulse/generator.js";
 export { PredictiveModel } from "./prediction/model.js";
@@ -27,6 +28,11 @@ export type {
   DecayEvent,
   InitStatsEvent,
 } from "./domain/events.js";
+export type {
+  ActivationEvent,
+  KLineEvent,
+  AgencyEvent,
+} from "./domain/events.js";
 
 // Phase 3 exports
 export { NamingService } from "./memory/naming-service.js";
@@ -40,3 +46,8 @@ export { NoopEventSink } from "./engine/event-sink.js";
 export type { Clock } from "./engine/clock.js";
 export { SystemClock } from "./engine/clock.js";
 export { HttpEventSink } from "./infra/telemetry/http-event-sink.js";
+
+// Society of Mind (Minsky)
+export { AgentActivationEngine } from "./mind/activation-engine.js";
+export { KLineService } from "./mind/kline-service.js";
+export { AgencyService } from "./mind/agency-service.js";
