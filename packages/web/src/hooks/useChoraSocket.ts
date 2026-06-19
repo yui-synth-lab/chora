@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import type { TickEvent, NamingEvent, DecayEvent, InitStatsEvent } from '@chora/core/events';
+import type { TickEvent, NamingEvent, DecayEvent, InitStatsEvent, ActivationEvent, KLineEvent, AgencyEvent } from '@chora/core/events';
 import type { BaselineStats } from './useBaselineData.js';
 import type { TelemetryPoint, TimelineItem } from '../lib/view-models.js';
 
@@ -8,6 +8,9 @@ export interface SocketHandlers {
   onTick: (data: TickEvent) => void;
   onNaming: (data: NamingEvent) => void;
   onDecay: (data: DecayEvent) => void;
+  onActivation: (data: ActivationEvent) => void;
+  onKLine: (data: KLineEvent) => void;
+  onAgency: (data: AgencyEvent) => void;
   onConnectionChange: (connected: boolean) => void;
 }
 
@@ -54,7 +57,7 @@ export function useChoraSocket(handlers: SocketHandlers): void {
       try {
         const { type, data } = JSON.parse(event.data as string) as {
           type: string;
-          data: TickEvent | NamingEvent | DecayEvent | InitStatsEvent;
+          data: TickEvent | NamingEvent | DecayEvent | InitStatsEvent | ActivationEvent | KLineEvent | AgencyEvent;
         };
 
         switch (type) {
@@ -69,6 +72,15 @@ export function useChoraSocket(handlers: SocketHandlers): void {
             break;
           case 'decay':
             handlersRef.current.onDecay(data as DecayEvent);
+            break;
+          case 'activation':
+            handlersRef.current.onActivation(data as ActivationEvent);
+            break;
+          case 'kline':
+            handlersRef.current.onKLine(data as KLineEvent);
+            break;
+          case 'agency':
+            handlersRef.current.onAgency(data as AgencyEvent);
             break;
           default:
             break;

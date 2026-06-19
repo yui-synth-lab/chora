@@ -352,6 +352,26 @@ export class ChoraEngine {
           signal_d: pulse.signal_d - prediction.predicted_d,
         };
 
+        // Build active agents context for the LLM prompt
+        let activeAgents: { name: string; activation: number; neighbors: string[] }[] | undefined;
+        if (this.mind && this.lastActivations.length > 0) {
+          const allKLines = this.db.getAllActiveKLines();
+          const agentNameMap = new Map(this.lastActivations.map(a => [a.agentId, a.name]));
+          activeAgents = this.lastActivations.map(a => {
+            const neighbors: string[] = [];
+            for (const kl of allKLines) {
+              if (kl.agent_a_id === a.agentId) {
+                const name = agentNameMap.get(kl.agent_b_id);
+                if (name) neighbors.push(name);
+              } else if (kl.agent_b_id === a.agentId) {
+                const name = agentNameMap.get(kl.agent_a_id);
+                if (name) neighbors.push(name);
+              }
+            }
+            return { name: a.name, activation: a.totalActivation, neighbors };
+          });
+        }
+
         // Layer 2: build prompt + call LLM
         const { namingResponse, promptText, durationMs } =
           await this.translationSvc.translate({
@@ -359,6 +379,7 @@ export class ChoraEngine {
             history: history as any,
             deltas,
             pastNamings,
+            activeAgents,
           });
 
         // Invariant 9: resolve naming (dedup logic)

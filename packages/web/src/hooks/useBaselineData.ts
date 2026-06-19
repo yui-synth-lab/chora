@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import type { TelemetryPoint, Naming } from '../lib/view-models.js';
+import type { TelemetryPoint, Naming, KLine, Agency } from '../lib/view-models.js';
 
 export interface BaselineStats {
   cycle_count: number;
@@ -20,6 +20,8 @@ export interface BaselineData {
 export function useBaselineData() {
   const [history, setHistory] = useState<TelemetryPoint[]>([]);
   const [namings, setNamings] = useState<Naming[]>([]);
+  const [klines, setKlines] = useState<KLine[]>([]);
+  const [agencies, setAgencies] = useState<Agency[]>([]);
   const [stats, setStats] = useState<BaselineStats>({
     cycle_count: 0,
     active_namings: 0,
@@ -28,10 +30,12 @@ export function useBaselineData() {
 
   const loadBaseline = useCallback(async () => {
     try {
-      const [historyRes, namingsRes, stateRes] = await Promise.all([
+      const [historyRes, namingsRes, stateRes, klinesRes, agenciesRes] = await Promise.all([
         fetch('/api/history'),
         fetch('/api/namings'),
         fetch('/api/state'),
+        fetch('/api/klines'),
+        fetch('/api/agencies'),
       ]);
 
       if (historyRes.ok) {
@@ -45,6 +49,14 @@ export function useBaselineData() {
       if (stateRes.ok) {
         const data = await stateRes.json() as BaselineStats;
         setStats({ cycle_count: data.cycle_count, active_namings: data.active_namings, unique_names: data.unique_names });
+      }
+      if (klinesRes.ok) {
+        const data = await klinesRes.json() as KLine[];
+        setKlines(data);
+      }
+      if (agenciesRes.ok) {
+        const data = await agenciesRes.json() as Agency[];
+        setAgencies(data);
       }
     } catch (err) {
       console.error('Failed to load baseline data:', err);
@@ -64,5 +76,19 @@ export function useBaselineData() {
     }
   }, []);
 
-  return { history, setHistory, namings, setNamings, stats, setStats, loadBaseline, reloadNamings };
+  const reloadKlines = useCallback(async () => {
+    try {
+      const res = await fetch('/api/klines');
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json() as KLine[];
+      if (Array.isArray(data)) setKlines(data);
+    } catch (err) {
+      console.error('Failed to reload klines:', err);
+    }
+  }, []);
+
+  return {
+    history, setHistory, namings, setNamings, klines, setKlines, agencies, setAgencies,
+    stats, setStats, loadBaseline, reloadNamings, reloadKlines,
+  };
 }

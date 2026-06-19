@@ -7,6 +7,7 @@ export interface TranslationInput {
   history: PulseRecord[];
   deltas: { signal_a: number; signal_b: number; signal_c: number; signal_d: number };
   pastNamings: { name: string; occurrences: number; distance: number }[];
+  activeAgents?: { name: string; activation: number; neighbors: string[] }[];
 }
 
 export interface TranslationResult {
@@ -40,6 +41,7 @@ export class TranslationService {
         })),
         deltas: input.deltas,
         pastNamings: input.pastNamings,
+        activeAgents: input.activeAgents,
       },
       this.lang,
     );

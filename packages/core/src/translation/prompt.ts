@@ -17,6 +17,7 @@ export class SensoryPromptBuilder {
     const pastNamingSection =
       SensoryPromptBuilder.pastNamingSectionJa(promptData);
     const rareEvents = SensoryPromptBuilder.rareEventNotesJa(promptData);
+    const agentSection = SensoryPromptBuilder.activeAgentsSectionJa(promptData);
 
     return `[CONTEXT]
 あなたは身体感覚のみを持つ存在です。4つの内部信号（安定・報酬・緊張・繋）がリアルタイムに変化しており、今この瞬間、予測から大きく外れた感覚が生じています。
@@ -37,7 +38,7 @@ ${rareEvents}
 [MEMORY]
 過去に似た状態に与えた名前（閾値内に見つかったもののみ）:
 ${pastNamingSection}
-
+${agentSection}
 [INSTRUCTION]
 この感覚体験に名前を与えてください。
 名前は4つの信号すべてを反映すべきです。緊張だけでなく、安定・報酬・繋がりの感覚にも注目してください。
@@ -68,6 +69,7 @@ ${pastNamingSection}
     const pastNamingSection =
       SensoryPromptBuilder.pastNamingSectionEn(promptData);
     const rareEvents = SensoryPromptBuilder.rareEventNotesEn(promptData);
+    const agentSection = SensoryPromptBuilder.activeAgentsSectionEn(promptData);
 
     return `[CONTEXT]
 You are an entity that experiences only raw bodily signals. Four internal signals change in real time, and right now a large prediction error has occurred — something unexpected is being felt.
@@ -88,7 +90,7 @@ ${rareEvents}
 [MEMORY]
 Names given to similar states in the past (within distance threshold only):
 ${pastNamingSection}
-
+${agentSection}
 [INSTRUCTION]
 Give a name to this sensory experience.
 The name should reflect ALL four signals, not just stress. Pay attention to stability, reward, and connection too.
@@ -276,6 +278,28 @@ Reply with ONLY the following JSON — no prose, no markdown.
         notes.push("🕳️ 稀少事象: 完全な孤立 — すべての繋がりの糸が消えた。");
     }
     return notes.length > 0 ? "\n" + notes.join("\n") + "\n" : "";
+  }
+
+  private static activeAgentsSectionJa(promptData: TranslationPrompt): string {
+    if (!promptData.activeAgents || promptData.activeAgents.length === 0) return "";
+    const lines = promptData.activeAgents.map((a) => {
+      const neighborStr = a.neighbors.length > 0
+        ? ` ↔ [${a.neighbors.join(", ")}]`
+        : "";
+      return `  - "${a.name}" 活性度=${a.activation.toFixed(2)}${neighborStr}`;
+    });
+    return `\n[ACTIVE AGENTS]\n今この瞬間、以下のエージェント（過去の命名）が活性化しています。K-line接続（↔）は共起した記憶の結びつきを示します:\n${lines.join("\n")}\n`;
+  }
+
+  private static activeAgentsSectionEn(promptData: TranslationPrompt): string {
+    if (!promptData.activeAgents || promptData.activeAgents.length === 0) return "";
+    const lines = promptData.activeAgents.map((a) => {
+      const neighborStr = a.neighbors.length > 0
+        ? ` ↔ [${a.neighbors.join(", ")}]`
+        : "";
+      return `  - "${a.name}" activation=${a.activation.toFixed(2)}${neighborStr}`;
+    });
+    return `\n[ACTIVE AGENTS]\nThe following agents (past namings) are currently active. K-line connections (↔) show co-occurrence bonds:\n${lines.join("\n")}\n`;
   }
 
   private static pastNamingSectionJa(promptData: TranslationPrompt): string {

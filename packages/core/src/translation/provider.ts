@@ -16,6 +16,11 @@ export interface TranslationPrompt {
     occurrences: number;
     distance: number;
   }[];
+  activeAgents?: {
+    name: string;
+    activation: number;
+    neighbors: string[];
+  }[];
 }
 
 export interface NamingResponse {

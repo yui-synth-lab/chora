@@ -5,17 +5,20 @@ import { useChoraSocket, tickToTelemetryPoint, namingToTimelineItem } from './ho
 import { PulseChart } from './components/PulseChart.js';
 import { SelfModelMap, buildNamingEdges } from './components/SelfModelMap.js';
 import { NamingTimeline } from './components/NamingTimeline.js';
-import { MemoryCloud } from './components/MemoryCloud.js';
-import type { TimelineItem, NamingNode } from './lib/view-models.js';
-import type { TickEvent, NamingEvent, InitStatsEvent } from '@chora/core/events';
+import { AgentNetwork } from './components/AgentNetwork.js';
+import type { TimelineItem, NamingNode, AgentActivationVM } from './lib/view-models.js';
+import type { TickEvent, NamingEvent, InitStatsEvent, ActivationEvent, KLineEvent, AgencyEvent } from '@chora/core/events';
 
 export default function App() {
-  const { history, setHistory, namings, stats, setStats, loadBaseline, reloadNamings } =
-    useBaselineData();
+  const {
+    history, setHistory, namings, klines, agencies, setAgencies,
+    stats, setStats, loadBaseline, reloadNamings, reloadKlines,
+  } = useBaselineData();
   const [timeline, setTimeline] = useState<TimelineItem[]>([]);
   const [isConnected, setIsConnected] = useState(false);
   const [surpriseActive, setSurpriseActive] = useState(false);
   const [selectedNamingId, setSelectedNamingId] = useState<number | null>(null);
+  const [activationMap, setActivationMap] = useState<Map<number, AgentActivationVM>>(new Map());
 
   useEffect(() => { void loadBaseline(); }, [loadBaseline]);
 
@@ -44,7 +47,33 @@ export default function App() {
       setStats(prev => ({ ...prev, unique_names: data.is_new ? prev.unique_names + 1 : prev.unique_names }));
     },
 
-    onDecay: () => { void reloadNamings(); },
+    onDecay: () => {
+      void reloadNamings();
+      void reloadKlines();
+    },
+
+    onActivation: (data: ActivationEvent) => {
+      const map = new Map<number, AgentActivationVM>();
+      for (const a of data.activations) {
+        map.set(a.agentId, { agentId: a.agentId, name: a.name, totalActivation: a.totalActivation });
+      }
+      setActivationMap(map);
+    },
+
+    onKLine: (_data: KLineEvent) => {
+      void reloadKlines();
+    },
+
+    onAgency: (data: AgencyEvent) => {
+      setAgencies(data.agencies.map((a, i) => ({
+        id: a.id ?? i,
+        name: a.name,
+        member_ids: JSON.stringify(a.memberNames),
+        coherence: a.coherence,
+        formed_at: Date.now(),
+        updated_at: Date.now(),
+      })));
+    },
   });
 
   const namingNodes = useMemo<NamingNode[]>(() =>
@@ -95,10 +124,11 @@ export default function App() {
             onSelectNaming={setSelectedNamingId}
           />
           <NamingTimeline timeline={timeline} />
-          <MemoryCloud
+          <AgentNetwork
             namingNodes={namingNodes}
-            selectedNamingId={selectedNamingId}
-            onSelectNaming={setSelectedNamingId}
+            klines={klines}
+            agencies={agencies}
+            activations={activationMap}
           />
         </main>
       </div>

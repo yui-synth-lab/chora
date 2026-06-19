@@ -47,3 +47,31 @@ export interface TimelineItem {
   duration_ms: number;
   timestamp: number;
 }
+
+/** K-line record from /api/klines */
+export interface KLine {
+  id: number;
+  agent_a_id: number;
+  agent_b_id: number;
+  strength: number;
+  formed_at: number;
+  last_co_activation: number;
+  co_activation_count: number;
+}
+
+/** Agency record from /api/agencies */
+export interface Agency {
+  id: number;
+  name: string | null;
+  member_ids: string;
+  coherence: number;
+  formed_at: number;
+  updated_at: number;
+}
+
+/** Per-agent activation level (from WebSocket activation events) */
+export interface AgentActivationVM {
+  agentId: number;
+  name: string;
+  totalActivation: number;
+}
