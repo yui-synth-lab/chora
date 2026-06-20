@@ -50,9 +50,11 @@ describe("PredictiveModel Integration Test", () => {
       expect(result.predicted_d).toBeGreaterThanOrEqual(0);
       expect(result.predicted_d).toBeLessThanOrEqual(1);
 
-      // Verify error and surprise calculations
+      // Verify error and surprise calculations.
+      // error_magnitude is raw RMSE; surprise is the normalized score (per-channel
+      // error / typical magnitude), so the two are distinct measures now.
       expect(result.error_magnitude).toBeGreaterThanOrEqual(0);
-      expect(result.surprise).toBe(result.error_magnitude);
+      expect(result.surprise).toBeGreaterThanOrEqual(0);
       expect(typeof result.triggered_translation).toBe("boolean");
     },
   );

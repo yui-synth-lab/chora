@@ -69,11 +69,12 @@ async function main() {
   const generator = new PulseGenerator();
 
   // CHORA_SURPRISE_THRESHOLD: dial CHORA's verbosity at runtime.
-  // After retraining (Phase 5), the new model's mean RMSE is ~0.036 with
-  // genuine spikes reaching ~0.18–0.23. 0.15 (default) names only the rare
-  // genuine surprises; 0.08 names also moderate excursions; 0.06 starts
-  // catching noise. Tune to taste.
-  const surpriseThreshold = Number(process.env.CHORA_SURPRISE_THRESHOLD ?? 0.15);
+  // NOTE: surprise is now NORMALIZED (per-channel error / typical magnitude),
+  // not raw RMSE — so this threshold is in "multiples of typical deviation".
+  // 2.5 (default) ≈ 3%/day naming with all four senses represented
+  // (A:17 B:49 C:19 D:16). 3.5+ collapses back to reward-only (B-dominated);
+  // 2.0 floods (~11%/day, cooldown-saturated). Tune to taste.
+  const surpriseThreshold = Number(process.env.CHORA_SURPRISE_THRESHOLD ?? 2.5);
   const model = new PredictiveModel(modelPath, surpriseThreshold);
   console.log(`Surprise threshold: ${surpriseThreshold}`);
 

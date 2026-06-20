@@ -141,9 +141,10 @@ Reply with ONLY the following JSON — no prose, no markdown.
     return lines;
   }
 
-  // Typical prediction error magnitudes per channel (empirically observed).
-  // Used to normalize trend labels so the LLM perceives all channels with equal salience.
-  private static readonly TYPICAL_ERROR = { A: 0.1, B: 0.05, C: 0.3, D: 0.04 };
+  // Typical (median) prediction error magnitudes per channel, measured over
+  // 60k predictions (2026-06). Kept in sync with PredictiveModel.TYPICAL_ERROR
+  // so trend labels reflect the same normalization the surprise trigger uses.
+  private static readonly TYPICAL_ERROR = { A: 0.015, B: 0.023, C: 0.036, D: 0.019 };
 
   private static deltaLinesJa(promptData: TranslationPrompt): string[] {
     const te = SensoryPromptBuilder.TYPICAL_ERROR;
@@ -167,22 +168,24 @@ Reply with ONLY the following JSON — no prose, no markdown.
       return `${sign}${val.toFixed(2)} (${trend})`;
     };
 
+    // 方向と意味だけを伝える中立記述。質感（温度・色・手触り）の語彙は
+    // 与えず、あなた自身に造らせる。特定の比喩へ誘導しないことが多様性の鍵。
     const qualA =
       promptData.deltas.signal_a >= 0
-        ? "身体が重く落ち着いていく感覚"
-        : "足場が揺らぐ、安定が崩れる感覚";
+        ? "安定(A)が予測より高まる方向"
+        : "安定(A)が予測より崩れる方向";
     const qualB =
       promptData.deltas.signal_b >= 0
-        ? "内側から温かさが込み上げる、期待の高まり"
-        : "温もりが引いていく、期待が薄れる感覚";
+        ? "報酬(B)が予測より高まる方向"
+        : "報酬(B)が予測より引いていく方向";
     const qualC =
       promptData.deltas.signal_c >= 0
-        ? "筋肉が強張り、電気的な振動が高まる"
-        : "筋肉がほぐれ、緊張が溶けていく感覚";
+        ? "緊張(C)が予測より高まる方向"
+        : "緊張(C)が予測よりほどける方向";
     const qualD =
       promptData.deltas.signal_d >= 0
-        ? "外へ手を伸ばす感覚、繋がりの芽生え"
-        : "糸が切れていく、孤立が深まる感覚";
+        ? "繋がり(D)が予測より強まる方向"
+        : "繋がり(D)が予測より薄れる方向";
 
     return [
       `  安定(A): ${fmt(promptData.deltas.signal_a, te.A)} — ${qualA}`,
@@ -214,22 +217,26 @@ Reply with ONLY the following JSON — no prose, no markdown.
       return `${sign}${val.toFixed(2)} (${trend})`;
     };
 
+    // Neutral direction-only descriptions. We deliberately withhold sensory
+    // metaphor vocabulary (warmth, threads, electric…) and let the LLM invent
+    // the texture itself — not steering toward a fixed metaphor is what keeps
+    // the naming diverse.
     const qualA =
       promptData.deltas.signal_a >= 0
-        ? "body settling heavier, grounding"
-        : "ground shifting, stability wavering";
+        ? "stability(A) rising above prediction"
+        : "stability(A) falling below prediction";
     const qualB =
       promptData.deltas.signal_b >= 0
-        ? "inner warmth rising, anticipation building"
-        : "warmth fading, pleasure draining away";
+        ? "reward(B) rising above prediction"
+        : "reward(B) draining below prediction";
     const qualC =
       promptData.deltas.signal_c >= 0
-        ? "muscles tightening, electric hum intensifying"
-        : "muscles softening, tension dissolving";
+        ? "tension(C) climbing above prediction"
+        : "tension(C) releasing below prediction";
     const qualD =
       promptData.deltas.signal_d >= 0
-        ? "threads reaching outward, connection stirring"
-        : "threads withdrawing, isolation deepening";
+        ? "connection(D) strengthening above prediction"
+        : "connection(D) fading below prediction";
 
     return [
       `  stability(A): ${fmt(promptData.deltas.signal_a, te.A)} — ${qualA}`,

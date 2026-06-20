@@ -8,7 +8,26 @@ export class PredictiveModel {
   private modelPath: string;
   private surpriseThreshold: number;
 
-  constructor(modelPath: string, surpriseThreshold = 0.15) {
+  /**
+   * Per-channel typical (median) prediction error, measured empirically over
+   * 60k predictions (2026-06). Used to NORMALIZE surprise so every sense can
+   * trigger naming — not just the reward channel.
+   *
+   * Why this matters: signal_b (reward) is the only channel the generator
+   * makes genuinely spiky, so raw RMSE is dominated by B and the system only
+   * ever "notices" reward events (→ monoculture of "warm" namings). Dividing
+   * each channel's error by its typical magnitude puts all four senses on the
+   * same footing: a stress(C) or stability(A) excursion that is large *for
+   * that channel* now surprises just as much as a reward spike.
+   */
+  private static readonly TYPICAL_ERROR = { A: 0.015, B: 0.023, C: 0.036, D: 0.019 };
+
+  /**
+   * @param surpriseThreshold In NORMALIZED units (multiples of typical error),
+   *   not raw RMSE. Default 2.5 ≈ "a moderate multi-channel deviation". Lower
+   *   = more naming + more sensory diversity; higher = rarer, reward-dominated.
+   */
+  constructor(modelPath: string, surpriseThreshold = 2.5) {
     this.modelPath = modelPath;
     this.surpriseThreshold = surpriseThreshold;
   }
@@ -72,7 +91,14 @@ export class PredictiveModel {
     const mse = (errA * errA + errB * errB + errC * errC + errD * errD) / 4;
     const rmse = Math.sqrt(mse);
 
-    const surprise = rmse;
+    // Normalized surprise: each channel's error scaled by its typical magnitude
+    // so all four senses can drive naming, not just the spiky reward channel.
+    const te = PredictiveModel.TYPICAL_ERROR;
+    const nA = errA / te.A;
+    const nB = errB / te.B;
+    const nC = errC / te.C;
+    const nD = errD / te.D;
+    const surprise = Math.sqrt((nA * nA + nB * nB + nC * nC + nD * nD) / 4);
     const triggered_translation = surprise > this.surpriseThreshold;
 
     return {
@@ -80,6 +106,7 @@ export class PredictiveModel {
       predicted_b: predB,
       predicted_c: predC,
       predicted_d: predD,
+      // error_magnitude stays as raw RMSE (UI continuity); surprise is normalized.
       error_magnitude: rmse,
       surprise,
       triggered_translation,

@@ -34,9 +34,11 @@ describe("SensoryPromptBuilder", () => {
     expect(promptText).toContain("stab=0.50");
     expect(promptText).toContain("rew=0.42");
 
-    // Verify deltas are formatted with normalized trends and qualitative cues
-    expect(promptText).toContain("+0.35 (slight rise)");
-    expect(promptText).toContain("-0.15 (falling)");
+    // Verify deltas are formatted with normalized trends and qualitative cues.
+    // Trends use the empirical typical-error constants {A:.015,B:.023,C:.036,D:.019}:
+    // 0.35/0.036 ≈ 9.7× and 0.15/0.023 ≈ 6.5× typical → both register as spikes.
+    expect(promptText).toContain("+0.35 (spike up)");
+    expect(promptText).toContain("-0.15 (spike down)");
 
     // Verify past namings include new distance/reuse indicators
     expect(promptText).toContain('"ざわめき"');
@@ -75,8 +77,9 @@ describe("SensoryPromptBuilder", () => {
     expect(promptText).toContain("報酬=0.42");
 
     // Verify deltas are formatted with normalized trends and qualitative cues
-    expect(promptText).toContain("+0.35 (微増)");
-    expect(promptText).toContain("-0.15 (下降)");
+    // (same normalization as the English case → both register as spikes).
+    expect(promptText).toContain("+0.35 (急上昇)");
+    expect(promptText).toContain("-0.15 (急降下)");
 
     // Verify past namings include new distance/reuse indicators
     expect(promptText).toContain('"ざわめき"');

@@ -84,8 +84,10 @@ export function PulseChart({ history, isMaximized, onToggleMaximize }: Props) {
 
       <div className="surprise-track">
         {history.map((pt, idx) => {
+          // surprise is normalized (multiples of typical error): ~1.3 median,
+          // 2.5 trigger threshold, spikes to ~8. Scale the bar relative to that.
           const surpriseVal = pt.surprise ?? 0;
-          const heightPercent = Math.min(100, surpriseVal * 400);
+          const heightPercent = Math.min(100, surpriseVal * 12);
           const isTriggered = pt.triggered_translation;
           return (
             <div
@@ -95,9 +97,9 @@ export function PulseChart({ history, isMaximized, onToggleMaximize }: Props) {
                 height: `${Math.max(20, heightPercent)}%`,
                 backgroundColor: isTriggered
                   ? 'var(--color-surprise)'
-                  : `rgba(245, 158, 11, ${Math.min(1.0, surpriseVal * 3)})`,
+                  : `rgba(245, 158, 11, ${Math.min(1.0, surpriseVal * 0.4)})`,
               }}
-              title={`Surprise: ${surpriseVal.toFixed(3)} ${isTriggered ? '(Triggered)' : ''}`}
+              title={`Surprise: ${surpriseVal.toFixed(2)} ${isTriggered ? '(Triggered)' : ''}`}
             />
           );
         })}
