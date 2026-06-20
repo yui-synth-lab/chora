@@ -1,4 +1,4 @@
-import { Waypoints } from 'lucide-react';
+import { Waypoints, Maximize2, Minimize2 } from 'lucide-react';
 import type { NamingNode, KLine, Agency, AgentActivationVM } from '../lib/view-models.js';
 import { getSensoryColor, projectTo2D } from '../lib/sensory.js';
 
@@ -7,9 +7,11 @@ interface Props {
   klines: KLine[];
   agencies: Agency[];
   activations: Map<number, AgentActivationVM>;
+  isMaximized: boolean;
+  onToggleMaximize: () => void;
 }
 
-export function AgentNetwork({ namingNodes, klines, agencies, activations }: Props) {
+export function AgentNetwork({ namingNodes, klines, agencies, activations, isMaximized, onToggleMaximize }: Props) {
   const nodeMap = new Map(namingNodes.map(n => [n.id, n]));
 
   const agencyMembers = new Set<number>();
@@ -23,15 +25,26 @@ export function AgentNetwork({ namingNodes, klines, agencies, activations }: Pro
   return (
     <section className="glass-panel agent-network-panel">
       <div className="panel-header">
-        <h2 className="panel-title">
-          <Waypoints size={18} />
-          Society of Mind — Agent Network
-        </h2>
-        <div className="agent-network-stats">
-          <span className="an-stat">{klines.length} K-lines</span>
-          <span className="an-stat">{agencies.length} agencies</span>
+        <div className="panel-header-left" style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
+          <h2 className="panel-title">
+            <Waypoints size={18} />
+            Society of Mind — Agent Network
+          </h2>
+          <div className="agent-network-stats">
+            <span className="an-stat">{klines.length} K-lines</span>
+            <span className="an-stat">{agencies.length} agencies</span>
+          </div>
         </div>
+        <button
+          onClick={onToggleMaximize}
+          className="panel-action-btn"
+          title={isMaximized ? "Minimize" : "Maximize"}
+          aria-label={isMaximized ? "Minimize panel" : "Maximize panel"}
+        >
+          {isMaximized ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+        </button>
       </div>
+
       <div className="panel-content">
         <svg className="svg-map-canvas" viewBox="0 0 100 100">
           <line x1="50" y1="0" x2="50" y2="100" stroke="rgba(255,255,255,0.015)" strokeWidth={0.5} />

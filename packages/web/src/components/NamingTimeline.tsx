@@ -1,23 +1,36 @@
 import { useRef } from 'react';
-import { Bookmark } from 'lucide-react';
+import { Bookmark, Maximize2, Minimize2 } from 'lucide-react';
 import type { TimelineItem } from '../lib/view-models.js';
 import { getSensoryColor } from '../lib/sensory.js';
 
 interface Props {
   timeline: TimelineItem[];
+  isMaximized: boolean;
+  onToggleMaximize: () => void;
 }
 
-export function NamingTimeline({ timeline }: Props) {
+export function NamingTimeline({ timeline, isMaximized, onToggleMaximize }: Props) {
   const timelineEndRef = useRef<HTMLDivElement>(null);
 
   return (
     <section className="glass-panel timeline-panel">
       <div className="panel-header">
-        <h2 className="panel-title">
-          <Bookmark size={18} />
-          Naming Event Timeline (Layer 2 Naming)
-        </h2>
+        <div className="panel-header-left">
+          <h2 className="panel-title">
+            <Bookmark size={18} />
+            Naming Event Timeline (Layer 2 Naming)
+          </h2>
+        </div>
+        <button
+          onClick={onToggleMaximize}
+          className="panel-action-btn"
+          title={isMaximized ? "Minimize" : "Maximize"}
+          aria-label={isMaximized ? "Minimize panel" : "Maximize panel"}
+        >
+          {isMaximized ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+        </button>
       </div>
+
       <div className="panel-content">
         <div className="timeline-scroll">
           {timeline.length === 0 ? (

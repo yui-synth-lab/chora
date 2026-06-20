@@ -1,4 +1,4 @@
-import { Network } from 'lucide-react';
+import { Network, Maximize2, Minimize2 } from 'lucide-react';
 import type { NamingNode } from '../lib/view-models.js';
 import { getSensoryColor, projectTo2D, getDistance4D } from '../lib/sensory.js';
 
@@ -17,17 +17,30 @@ interface Props {
   namingEdges: Edge[];
   selectedNamingId: number | null;
   onSelectNaming: (id: number | null) => void;
+  isMaximized: boolean;
+  onToggleMaximize: () => void;
 }
 
-export function SelfModelMap({ namingNodes, namingEdges, selectedNamingId, onSelectNaming }: Props) {
+export function SelfModelMap({ namingNodes, namingEdges, selectedNamingId, onSelectNaming, isMaximized, onToggleMaximize }: Props) {
   return (
     <section className="glass-panel self-model-panel">
       <div className="panel-header">
-        <h2 className="panel-title">
-          <Network size={18} />
-          Self-Model Map (Layer 3 Coordinate Projection)
-        </h2>
+        <div className="panel-header-left">
+          <h2 className="panel-title">
+            <Network size={18} />
+            Self-Model Map (Layer 3 Coordinate Projection)
+          </h2>
+        </div>
+        <button
+          onClick={onToggleMaximize}
+          className="panel-action-btn"
+          title={isMaximized ? "Minimize" : "Maximize"}
+          aria-label={isMaximized ? "Minimize panel" : "Maximize panel"}
+        >
+          {isMaximized ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+        </button>
       </div>
+
       <div className="panel-content">
         <svg className="svg-map-canvas" viewBox="0 0 100 100">
           <line x1="50" y1="0" x2="50" y2="100" stroke="rgba(255,255,255,0.015)" strokeWidth={0.5} />

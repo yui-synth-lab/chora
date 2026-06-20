@@ -7,11 +7,13 @@ import {
   Tooltip,
   CartesianGrid,
 } from 'recharts';
-import { Activity } from 'lucide-react';
+import { Activity, Maximize2, Minimize2 } from 'lucide-react';
 import type { TelemetryPoint } from '../lib/view-models.js';
 
 interface Props {
   history: TelemetryPoint[];
+  isMaximized: boolean;
+  onToggleMaximize: () => void;
 }
 
 function formatTime(tickTime: number): string {
@@ -22,15 +24,26 @@ function formatTime(tickTime: number): string {
   });
 }
 
-export function PulseChart({ history }: Props) {
+export function PulseChart({ history, isMaximized, onToggleMaximize }: Props) {
   return (
     <section className="glass-panel signal-panel">
       <div className="panel-header">
-        <h2 className="panel-title">
-          <Activity size={18} />
-          Sensory Pulse Stream (Layer 0 &amp; Layer 1)
-        </h2>
+        <div className="panel-header-left">
+          <h2 className="panel-title">
+            <Activity size={18} />
+            Sensory Pulse Stream (Layer 0 &amp; Layer 1)
+          </h2>
+        </div>
+        <button
+          onClick={onToggleMaximize}
+          className="panel-action-btn"
+          title={isMaximized ? "Minimize" : "Maximize"}
+          aria-label={isMaximized ? "Minimize panel" : "Maximize panel"}
+        >
+          {isMaximized ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+        </button>
       </div>
+
       <div className="panel-content">
         <div className="chart-wrapper">
           <ResponsiveContainer width="100%" height="100%">

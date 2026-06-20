@@ -18,3 +18,4 @@ packages/cli/data/
 .vscode/
 .idea/
 .env
+models/backup/*

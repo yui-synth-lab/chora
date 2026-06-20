@@ -154,6 +154,18 @@ body {
   overflow: hidden;
 }
 
+.main-grid.has-maximized {
+  grid-template-columns: 1fr;
+  grid-template-rows: 1fr;
+}
+
+.main-grid.has-maximized > section {
+  grid-column: 1 / -1;
+  grid-row: 1 / -1;
+  height: 100%;
+}
+
+
 /* Panels */
 .signal-panel {
   grid-column: 1 / 2;
@@ -216,7 +228,35 @@ body {
   align-items: center;
   margin-bottom: 16px;
   flex-shrink: 0;
+  gap: 12px;
 }
+
+.panel-header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.panel-action-btn {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--text-muted);
+  border-radius: 6px;
+  padding: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.panel-action-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.15);
+  color: var(--text-primary);
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.1);
+}
+
 
 .panel-title {
   font-size: 15px;

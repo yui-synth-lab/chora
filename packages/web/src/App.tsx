@@ -19,6 +19,7 @@ export default function App() {
   const [surpriseActive, setSurpriseActive] = useState(false);
   const [selectedNamingId, setSelectedNamingId] = useState<number | null>(null);
   const [activationMap, setActivationMap] = useState<Map<number, AgentActivationVM>>(new Map());
+  const [maximizedView, setMaximizedView] = useState<'pulse' | 'map' | 'timeline' | 'network' | null>(null);
 
   useEffect(() => { void loadBaseline(); }, [loadBaseline]);
 
@@ -115,21 +116,41 @@ export default function App() {
             <span>{isConnected ? 'STREAM CONNECTED' : 'OFFLINE'}</span>
           </div>
         </header>
-        <main className="main-grid">
-          <PulseChart history={history} />
-          <SelfModelMap
-            namingNodes={namingNodes}
-            namingEdges={namingEdges}
-            selectedNamingId={selectedNamingId}
-            onSelectNaming={setSelectedNamingId}
-          />
-          <NamingTimeline timeline={timeline} />
-          <AgentNetwork
-            namingNodes={namingNodes}
-            klines={klines}
-            agencies={agencies}
-            activations={activationMap}
-          />
+        <main className={`main-grid ${maximizedView ? 'has-maximized' : ''}`}>
+          {(!maximizedView || maximizedView === 'pulse') && (
+            <PulseChart
+              history={history}
+              isMaximized={maximizedView === 'pulse'}
+              onToggleMaximize={() => setMaximizedView(maximizedView === 'pulse' ? null : 'pulse')}
+            />
+          )}
+          {(!maximizedView || maximizedView === 'map') && (
+            <SelfModelMap
+              namingNodes={namingNodes}
+              namingEdges={namingEdges}
+              selectedNamingId={selectedNamingId}
+              onSelectNaming={setSelectedNamingId}
+              isMaximized={maximizedView === 'map'}
+              onToggleMaximize={() => setMaximizedView(maximizedView === 'map' ? null : 'map')}
+            />
+          )}
+          {(!maximizedView || maximizedView === 'timeline') && (
+            <NamingTimeline
+              timeline={timeline}
+              isMaximized={maximizedView === 'timeline'}
+              onToggleMaximize={() => setMaximizedView(maximizedView === 'timeline' ? null : 'timeline')}
+            />
+          )}
+          {(!maximizedView || maximizedView === 'network') && (
+            <AgentNetwork
+              namingNodes={namingNodes}
+              klines={klines}
+              agencies={agencies}
+              activations={activationMap}
+              isMaximized={maximizedView === 'network'}
+              onToggleMaximize={() => setMaximizedView(maximizedView === 'network' ? null : 'network')}
+            />
+          )}
         </main>
       </div>
     </>
