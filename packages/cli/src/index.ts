@@ -3,6 +3,7 @@ import {
   PulseGenerator,
   PredictiveModel,
   OllamaProvider,
+  LlamaProvider,
   NamingService,
   TranslationService,
   ChoraEngine,
@@ -93,11 +94,26 @@ async function main() {
     );
   }
 
-  const ollamaModelName =
-    process.env.OLLAMA_MODEL ||
-    "hf.co/unsloth/Qwen3-4B-Instruct-2507-GGUF:Q4_K_M";
+  const llmProviderType = process.env.LLM_PROVIDER || "ollama";
   const promptLang = (process.env.PROMPT_LANG === "ja" ? "ja" : "en") as "en" | "ja";
-  console.log(`LLM: ${ollamaModelName} | prompt lang: ${promptLang}`);
+
+  let llmProvider;
+  let llmLabel;
+
+  if (llmProviderType === "llama") {
+    const llamaEndpoint = process.env.LLAMA_ENDPOINT || "http://localhost:8080/completion";
+    llmProvider = new LlamaProvider(llamaEndpoint);
+    llmLabel = `llama (${llamaEndpoint})`;
+  } else {
+    const ollamaModelName =
+      process.env.OLLAMA_MODEL ||
+      "hf.co/unsloth/Qwen3-4B-Instruct-2507-GGUF:Q4_K_M";
+    const ollamaEndpoint = process.env.OLLAMA_ENDPOINT || "http://localhost:11434/api/generate";
+    llmProvider = new OllamaProvider(ollamaModelName, ollamaEndpoint);
+    llmLabel = `ollama (${ollamaModelName})`;
+  }
+
+  console.log(`LLM: ${llmLabel} | prompt lang: ${promptLang}`);
 
   // Initialize ONNX model — graceful degrade on failure
   try {
@@ -121,10 +137,10 @@ async function main() {
     generator,
     model,
     new NamingService(db),
-    new TranslationService(new OllamaProvider(ollamaModelName), promptLang),
+    new TranslationService(llmProvider, promptLang),
     new HttpEventSink(),
     new SystemClock(),
-    { llmProviderLabel: `ollama (${ollamaModelName})` },
+    { llmProviderLabel: llmLabel },
     initialLastDecayTime,
     { activationEngine, klineService, agencyService },
   );

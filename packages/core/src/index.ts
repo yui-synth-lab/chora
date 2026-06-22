@@ -15,6 +15,7 @@ export { PredictiveModel } from "./prediction/model.js";
 export type { PredictionResult } from "./prediction/model.js";
 export { findWorkspaceRoot } from "./utils/workspace.js";
 export { OllamaProvider } from "./translation/ollama.js";
+export { LlamaProvider } from "./translation/llama.js";
 export { SensoryPromptBuilder } from "./translation/prompt.js";
 export type {
   LLMProvider,
