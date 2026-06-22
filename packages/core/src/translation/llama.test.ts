@@ -62,6 +62,30 @@ describe("LlamaProvider", () => {
     });
   });
 
+  it("should successfully parse response wrapped in markdown code block", async () => {
+    const rawMarkdownContent = "```json\n" + JSON.stringify({
+      use_existing_name: null,
+      new_name: "warm pulse",
+      description: "a steady warmth spreading through the chest",
+      confidence: 0.95,
+    }) + "\n```";
+
+    vi.mocked(fetch).mockResolvedValue({
+      ok: true,
+      json: async () => ({ content: rawMarkdownContent }),
+    } as Response);
+
+    const provider = new LlamaProvider();
+    const result = await provider.generateNaming("test prompt");
+
+    expect(result).toEqual({
+      use_existing_name: null,
+      new_name: "warm pulse",
+      description: "a steady warmth spreading through the chest",
+      confidence: 0.95,
+    });
+  });
+
   it("should handle invalid JSON and throw error", async () => {
     vi.mocked(fetch).mockResolvedValue({
       ok: true,

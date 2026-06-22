@@ -31,9 +31,10 @@ export class LlamaProvider implements LLMProvider {
     }
 
     const json = (await response.json()) as { content: string };
+    const cleanedContent = cleanJsonResponse(json.content);
 
     try {
-      const parsed = JSON.parse(json.content);
+      const parsed = JSON.parse(cleanedContent);
       return {
         use_existing_name: parsed.use_existing_name || null,
         new_name: parsed.new_name || null,
@@ -49,4 +50,15 @@ export class LlamaProvider implements LLMProvider {
       );
     }
   }
+}
+
+function cleanJsonResponse(raw: string): string {
+  let cleaned = raw.trim();
+  // Strip markdown code blocks if present
+  const markdownRegex = /^```(?:json|JSON)?\s*([\s\S]*?)\s*```$/;
+  const match = cleaned.match(markdownRegex);
+  if (match) {
+    cleaned = match[1].trim();
+  }
+  return cleaned;
 }
