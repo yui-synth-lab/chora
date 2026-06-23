@@ -96,19 +96,26 @@ async function main() {
 
   const llmProviderType = process.env.LLM_PROVIDER || "ollama";
   const promptLang = (process.env.PROMPT_LANG === "ja" ? "ja" : "en") as "en" | "ja";
+  const llmEndpoint = process.env.LLM_ENDPOINT;
 
   let llmProvider;
   let llmLabel;
 
   if (llmProviderType === "llama") {
-    const llamaEndpoint = process.env.LLAMA_ENDPOINT || "http://localhost:8080/completion";
+    const llamaEndpoint =
+      llmEndpoint ||
+      process.env.LLAMA_ENDPOINT ||
+      "http://localhost:8080/completion";
     llmProvider = new LlamaProvider(llamaEndpoint);
     llmLabel = `llama (${llamaEndpoint})`;
   } else {
     const ollamaModelName =
       process.env.OLLAMA_MODEL ||
       "hf.co/unsloth/Qwen3-4B-Instruct-2507-GGUF:Q4_K_M";
-    const ollamaEndpoint = process.env.OLLAMA_ENDPOINT || "http://localhost:11434/api/generate";
+    const ollamaEndpoint =
+      llmEndpoint ||
+      process.env.OLLAMA_ENDPOINT ||
+      "http://localhost:11434/api/generate";
     llmProvider = new OllamaProvider(ollamaModelName, ollamaEndpoint);
     llmLabel = `ollama (${ollamaModelName})`;
   }
